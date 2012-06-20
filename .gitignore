@@ -1,0 +1,6 @@
+.*.swp
+checker.config
+*.kpf
+*.pyc
+*.pyo
+rules

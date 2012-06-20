@@ -1,0 +1,3 @@
+[rulesets]
+rulesdir = /path/to/https-everywhere/src/chrome/content/rules
+
