@@ -1,4 +1,4 @@
-from lxml import etree
+import re
 
 class Rule(object):
 	"""Represents one from->to rule element."""
@@ -8,8 +8,13 @@ class Rule(object):
 		@param: etree <rule>Element
 		"""
 		attrs = ruleElem.attrib
-		self.fromRegex = attrs["from"]
-		self.toRegex = attrs["to"]
+		self.fromPattern = attrs["from"]
+		self.toPattern = attrs["to"]
+		self.fromRe = re.compile(self.fromPattern)
+	
+	def apply(self, url):
+		"""Apply rule to URL string and return result."""
+		return self.fromRe.sub(self.toPattern, url)
 	
 	def __repr__(self):
 		return "<Rule from '%s' to '%s'>" % (self.fromRegex, self.toRegex)
@@ -19,7 +24,7 @@ class Rule(object):
 	
 	def _id(self):
 		"""Indentity for __eq__ and __hash__"""
-		return (self.fromRegex, self.toRegex)
+		return (self.fromPattern, self.toPattern)
 	
 	def __eq__(self, other):
 		return self._id() == other._id()
@@ -27,6 +32,22 @@ class Rule(object):
 	def __hash__(self):
 		return hash(self._id())
 
+class Exclusion(object):
+	"""Exclusion rule for <exclusion pattern=""> element"""
+	
+	def __init__(self, exclusionElem):
+		"""Create instance from <exclusion> element
+		@param exclusionElem: <exclusion> element from lxml tree
+		"""
+		self.exclusionPattern = exclusionElem.attrib["pattern"]
+		self.exclusionRe = re.compile(self.exclusionPattern)
+	
+	def matches(self, url):
+		"""Returns true iff this exclusion rule matches given url
+		@param url: URL to check as string
+		"""
+		return self.exclusionRe.match(url) is not None
+	
 class Ruleset(object):
 	"""Represents one XML ruleset file."""
 	
@@ -39,6 +60,9 @@ class Ruleset(object):
 	#convert each etree Element of list into Rule
 	_rulesConvert = lambda elemList: [Rule(elem) for elem in elemList]
 	
+	#convert each etree Element of list into Exclusion
+	_exclusionConvert = lambda elemList: [Exclusion(elem) for elem in elemList]
+	
 	#functional description of converting XML elements/attributes into
 	#instance variables. Tuples are:
 	#(attribute name in this class, XPath expression, conversion function into value)
@@ -48,6 +72,7 @@ class Ruleset(object):
 		("defaultOff",	"/ruleset/@default_off", 	_strAttr),
 		("targets",	"/ruleset/target/@host",	_strAttrs),
 		("rules",	"/ruleset/rule", 		_rulesConvert),
+		("exclusions",	"/ruleset/exclusion", 		_exclusionConvert),
 	]
 	
 	def __init__(self, xmlTree):
