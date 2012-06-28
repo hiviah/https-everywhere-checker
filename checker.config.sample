@@ -1,3 +1,7 @@
+#Directory with XML files describing HTTPS Everywhere rulesets
 [rulesets]
 rulesdir = /path/to/https-everywhere/src/chrome/content/rules
 
+#Certificate trust anchors for checking chains in HTTPS connections
+[certificates]
+basedir = platform_certs
