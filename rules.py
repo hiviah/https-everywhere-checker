@@ -9,7 +9,8 @@ class Rule(object):
 		"""
 		attrs = ruleElem.attrib
 		self.fromPattern = attrs["from"]
-		self.toPattern = attrs["to"]
+		#switch $1, $2... JS capture patterns to Python \1, \2...
+		self.toPattern = re.sub(r"\$(\d+)", r"\\\1", attrs["to"])
 		self.fromRe = re.compile(self.fromPattern)
 	
 	def apply(self, url):
@@ -100,6 +101,22 @@ class Ruleset(object):
 		"""Returns True iff one of exclusion patterns matches the url."""
 		return any((exclusion.matches(url) for exclusion in self.exclusions))
 	
+	def apply(self, url):
+		"""Apply rules from this ruleset on the given url. Exclusions
+		are checked.
+		
+		@param url: string URL
+		"""
+		if self.excludes(url):
+			return url
+		
+		for rule in self.rules:
+			newUrl = rule.apply(url)
+			if url != newUrl:
+				return newUrl #only one rewrite
+		
+		return url #nothing rewritten
+		
 	def uniqueTargetFQDNs(self):
 		"""Returns unique FQDNs found in <target> elements. Wildcards are
 		stripped. Any FQDNs with wildcard TLD part are skipped.

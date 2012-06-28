@@ -36,21 +36,30 @@ for xmlFname in xmlFnames:
 
 #trie.prettyPrint()
 
-#matching = trie.matchingRulesets("yandex.ru")
-matching = trie.matchingRulesets("www.yandex.ru")
+matching = trie.matchingRulesets("yandex.ru")
+#matching = trie.matchingRulesets("www.google.com")
 print matching
 rule = matching.pop()
 print rule.uniqueTargetFQDNs()
 print rule.excludes("http://api-maps.yandex.ru/ladfhglaskdjgh/xcvxzcv.zxcv")
 print rule.excludes("http://fffuuu.yandex.ru/iugyosidfgy")
+print rule.excludes("http://www.google.com/search/zbla&fu=blue&tbs=shop&zzz=ggg")
 
 fetchOptions = http_client.FetchOptions(config)
 platforms = http_client.CertificatePlatforms(certdir)
 fetcher = http_client.HTTPFetcher(rule.platform, platforms, fetchOptions)
 
 p1 = fetcher.fetchHtml("http://www.yandex.ru")
-p2 = fetcher.fetchHtml("https://www.google.com")
 
-print len(p1), len(p2)
 t1 = etree.parse(StringIO(p1), etree.HTMLParser())
-t2 = etree.parse(StringIO(p2), etree.HTMLParser())
+
+urls = t1.xpath("//a/@href | //img/@src | //link/@href")
+
+for url in urls:
+	url = unicode(url)
+	if not url.startswith("http://"):
+		continue
+	newUrl = rule.apply(url)
+	if url != newUrl:
+		print url, "========>", newUrl
+	
