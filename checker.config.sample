@@ -5,3 +5,9 @@ rulesdir = /path/to/https-everywhere/src/chrome/content/rules
 #Certificate trust anchors for checking chains in HTTPS connections
 [certificates]
 basedir = platform_certs
+
+#HTTP(S) fetching options
+#Timeouts are in seconds.
+[http]
+connect_timeout = 10
+read_timeout = 15

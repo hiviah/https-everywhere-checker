@@ -83,10 +83,11 @@ class Ruleset(object):
 		#set default values for rule attributes, makes it easier for
 		#code completion
 		self.name = None
-		self.platform = None
+		self.platform = "default"
 		self.defaultOff = None
 		self.rules = []
 		self.targets = []
+		self.exclusions = []
 		
 		for (attrName, xpath, conversion) in self._attrConvert:
 			elems = root.xpath(xpath)
@@ -94,6 +95,26 @@ class Ruleset(object):
 				setattr(self, attrName, conversion(elems))
 			
 		
+	
+	def excludes(self, url):
+		"""Returns True iff one of exclusion patterns matches the url."""
+		return any((exclusion.matches(url) for exclusion in self.exclusions))
+	
+	def uniqueTargetFQDNs(self):
+		"""Returns unique FQDNs found in <target> elements. Wildcards are
+		stripped. Any FQDNs with wildcard TLD part are skipped.
+		
+		@returns: iterable of FQDN strings
+		"""
+		uniqueFQDNs = set()
+		for target in self.targets:
+			if target.endswith(".*"):
+				continue
+			if target.startswith("*."):
+				target = target[2:]
+			uniqueFQDNs.add(target)
+		
+		return uniqueFQDNs
 	
 	def __repr__(self):
 		return "<Ruleset(name=%s, platform=%s)>" % (repr(self.name), repr(self.platform))
