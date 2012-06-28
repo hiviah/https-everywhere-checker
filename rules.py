@@ -67,17 +67,17 @@ class Ruleset(object):
 	#instance variables. Tuples are:
 	#(attribute name in this class, XPath expression, conversion function into value)
 	_attrConvert = [
-		("name",	"/ruleset/@name", 		_strAttr),
-		("platform",	"/ruleset/@platform", 		_strAttr),
-		("defaultOff",	"/ruleset/@default_off", 	_strAttr),
-		("targets",	"/ruleset/target/@host",	_strAttrs),
-		("rules",	"/ruleset/rule", 		_rulesConvert),
-		("exclusions",	"/ruleset/exclusion", 		_exclusionConvert),
+		("name",	"@name", 		_strAttr),
+		("platform",	"@platform", 		_strAttr),
+		("defaultOff",	"@default_off", 	_strAttr),
+		("targets",	"target/@host",		_strAttrs),
+		("rules",	"rule", 		_rulesConvert),
+		("exclusions",	"exclusion", 		_exclusionConvert),
 	]
 	
 	def __init__(self, xmlTree):
 		"""Create instance from given XML (sub)tree.
-		@param xmlTree: XML (sub)tree with rules element
+		@param xmlTree: XML (sub)tree corresponding to the <ruleset> element
 		"""
 		root = xmlTree
 		#set default values for rule attributes, makes it easier for

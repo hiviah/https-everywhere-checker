@@ -27,7 +27,7 @@ trie = RuleTrie()
 
 
 for xmlFname in xmlFnames:
-	ruleset = Ruleset(etree.parse(file(xmlFname)))
+	ruleset = Ruleset(etree.parse(file(xmlFname)).getroot())
 	#print ruleset
 	#print "=====", ruleset.rules
 	
