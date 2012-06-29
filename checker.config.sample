@@ -11,6 +11,7 @@ basedir = platform_certs
 [http]
 connect_timeout = 10
 read_timeout = 15
+redirect_depth = 10
 
 #Logging
 # logfile - filename or use - for stderr

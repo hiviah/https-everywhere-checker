@@ -71,9 +71,9 @@ if __name__ == "__main__":
 	
 	fetchOptions = http_client.FetchOptions(config)
 	platforms = http_client.CertificatePlatforms(certdir)
-	fetcher = http_client.HTTPFetcher(rule.platform, platforms, fetchOptions)
+	fetcher = http_client.HTTPFetcher(rule.platform, platforms, fetchOptions, trie)
 	
-	p1 = fetcher.fetchHtml("http://www.yandex.ru")
+	(r1, p1) = fetcher.fetchHtml("https://yandex.ru")
 	
 	t1 = etree.parse(StringIO(p1), etree.HTMLParser())
 	
@@ -81,9 +81,9 @@ if __name__ == "__main__":
 	
 	for url in urls:
 		url = unicode(url)
-		if not url.startswith("http://"):
+		if not trie.acceptedScheme(url):
 			continue
-		newUrl = rule.apply(url)
+		newUrl = trie.transformUrl(url)
 		if url != newUrl:
 			print url, "========>", newUrl
 		

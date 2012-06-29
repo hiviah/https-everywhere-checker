@@ -1,3 +1,10 @@
+import urlparse
+
+class RuleTransformError(ValueError):
+	"""Thrown when invalid scheme like file:/// is attempted to be
+	transformed.
+	"""
+	pass
 
 class DomainNode(object):
 	"""Node of suffix trie for searching of applicable rulesets."""
@@ -95,6 +102,32 @@ class RuleTrie(object):
 					partNode.rulesets.append(ruleset)
 				
 				node = partNode
+	
+	def acceptedScheme(self, url):
+		"""Returns True iff the scheme in URL is accepted (http, https).
+		"""
+		parsed = urlparse.urlparse(url)
+		return parsed.scheme in ("http", "https")
+		
+	def transformUrl(self, url):
+		"""Look for rules applicable to URL and apply first one.
+		
+		@returns: url transformed by rules in this trie
+		@throws: RuleTransformError if scheme is wrong (e.g. file:///)
+		"""
+		parsed = urlparse.urlparse(url)
+		if parsed.scheme not in ("http", "https"):
+			raise RuleTransformError("Unknown scheme '%s' in '%s'" % \
+				(parsed.scheme, url))
+			
+		fqdn = parsed.netloc.lower()
+		matching = self.matchingRulesets(fqdn)
+		
+		for ruleset in matching:
+			newUrl = ruleset.apply(url)
+			if newUrl != url:
+				return newUrl
+		return url
 	
 	def prettyPrint(self):
 		self.root.prettyPrint()
