@@ -11,3 +11,11 @@ basedir = platform_certs
 [http]
 connect_timeout = 10
 read_timeout = 15
+
+#Logging
+# logfile - filename or use - for stderr
+# loglevel - minimal log messages severity - one of debug, info, warn, error, fatal
+[log]
+logfile = -
+loglevel = debug
+
