@@ -11,8 +11,10 @@ from ConfigParser import SafeConfigParser
 from lxml import etree
 
 import http_client
+import metrics
 from rules import Ruleset
 from rule_trie import RuleTrie
+import Levenshtein
 
 def convertLoglevel(levelString):
 	"""Converts string 'debug', 'info', etc. into corresponding
@@ -63,19 +65,26 @@ if __name__ == "__main__":
 				logging.debug("Skipping landing page %s", targetHTTPLangingPage)
 		trie.addRuleset(ruleset)
 	
-	#trie.prettyPrint()
-	
-	matching = trie.matchingRulesets("yandex.ru")
-	#matching = trie.matchingRulesets("www.google.com")
-	rule = matching.pop()
-	
 	fetchOptions = http_client.FetchOptions(config)
 	platforms = http_client.CertificatePlatforms(certdir)
-	fetcher = http_client.HTTPFetcher(rule.platform, platforms, fetchOptions, trie)
+	fetcher = http_client.HTTPFetcher("default", platforms, fetchOptions, trie)
+	fetcherPlain = http_client.HTTPFetcher("default", platforms, fetchOptions)
 	
-	(r1, p1) = fetcher.fetchHtml("https://yandex.ru")
+	(r1, p1) = fetcherPlain.fetchHtml("http://www.google.com")
+	(r2, p2) = fetcher.fetchHtml("https://encrypted.google.com")
 	
 	t1 = etree.parse(StringIO(p1), etree.HTMLParser())
+	t2 = etree.parse(StringIO(p2), etree.HTMLParser())
+	
+	(m1, m2) = metrics.MarkupMetric().mappedTrees(t1.getroot(), t2.getroot())
+	print len(m1), len(m2)
+	print m1
+	print "======"
+	print m2
+	print "L dist", Levenshtein.distance(m1, m2)
+	print "L ratio", Levenshtein.ratio(m1, m2)
+	print "BS dist mapped", metrics.BSDiffMetric().distanceNormed(m1, m2)
+	print "BS dist orig", metrics.BSDiffMetric().distanceNormed(p1, p2)
 	
 	urls = t1.xpath("//a/@href | //img/@src | //link/@href")
 	
