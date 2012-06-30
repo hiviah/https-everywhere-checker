@@ -70,8 +70,8 @@ if __name__ == "__main__":
 	fetcher = http_client.HTTPFetcher("default", platforms, fetchOptions, trie)
 	fetcherPlain = http_client.HTTPFetcher("default", platforms, fetchOptions)
 	
-	(r1, p1) = fetcherPlain.fetchHtml("http://www.google.com")
-	(r2, p2) = fetcher.fetchHtml("https://encrypted.google.com")
+	(r1, p1) = fetcherPlain.fetchHtml("http://www.geotrust.com")
+	(r2, p2) = fetcher.fetchHtml("https://www.geotrust.com")
 	
 	t1 = etree.parse(StringIO(p1), etree.HTMLParser())
 	t2 = etree.parse(StringIO(p2), etree.HTMLParser())

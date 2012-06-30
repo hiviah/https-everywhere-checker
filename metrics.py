@@ -59,11 +59,10 @@ class MarkupMetric(object):
 		@param elem: lxml Element
 		@param tagToCharMap: dict from tag name to unicode char
 		"""
-		children = list(elem)
-		thisElem = tagToCharMap.get(elem.tag)
-		#TODO: weed out comments and processing instructions
-		if not thisElem:
-			return u""
+		#this isinstance test is in lxml tutorial, dunno how else to skip comments
+		children = [child for child in list(elem) if isinstance(child.tag, basestring)]
+		thisElem = tagToCharMap[elem.tag]
+		
 		if children:
 			childrenMap = [self.mapTree(child, tagToCharMap) for child in children]
 			return thisElem + u'(' + "".join(childrenMap) + u')'
