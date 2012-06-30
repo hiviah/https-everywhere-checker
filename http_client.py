@@ -22,7 +22,7 @@ class CertificatePlatforms(object):
 		attribute in <ruleset> element
 		@param caPath: path to dir with c_rehash'd PEM certificates
 		"""
-		self.platformPaths["platform"] = caPath
+		self.platformPaths[platform] = caPath
 	
 	def getCAPath(self, platform):
 		"""Return path to CA certs for chosen platform. If it does not

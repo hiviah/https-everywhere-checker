@@ -66,12 +66,19 @@ if __name__ == "__main__":
 		trie.addRuleset(ruleset)
 	
 	fetchOptions = http_client.FetchOptions(config)
+	
 	platforms = http_client.CertificatePlatforms(certdir)
+	havePlatforms = ["cacert"]
+	for platform in havePlatforms:
+		platforms.addPlatform(platform, os.path.join(certdir, platform))
+	
 	fetcher = http_client.HTTPFetcher("default", platforms, fetchOptions, trie)
+	fetcherCACert = http_client.HTTPFetcher("cacert", platforms, fetchOptions, trie)
 	fetcherPlain = http_client.HTTPFetcher("default", platforms, fetchOptions)
 	
 	(r1, p1) = fetcherPlain.fetchHtml("http://www.geotrust.com")
 	(r2, p2) = fetcher.fetchHtml("https://www.geotrust.com")
+	(r3, p3) = fetcherCACert.fetchHtml("https://videolan.org")
 	
 	t1 = etree.parse(StringIO(p1), etree.HTMLParser())
 	t2 = etree.parse(StringIO(p2), etree.HTMLParser())
