@@ -1,0 +1,10 @@
+Metadata-Version: 1.0
+Name: cx_bsdiff
+Version: 1.1
+Summary: Python interface for bsdiff
+Home-page: http://www.computronix.com/utilities.shtml
+Author: Anthony Tuininga
+Author-email: anthony.tuininga@gmail.com
+License: See LICENSE.txt
+Description: Python interface for bsdiff
+Platform: UNKNOWN

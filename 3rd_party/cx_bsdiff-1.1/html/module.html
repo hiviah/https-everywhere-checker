@@ -1,0 +1,116 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.0 Transitional//EN">
+<html>
+<head>
+<link rel="STYLESHEET" href="bsdiff.css" type='text/css' />
+<link rel="first" href="bsdiff.html" title='cx_Logging' />
+<link rel='contents' href='contents.html' title="Contents" />
+<link rel='last' href='about.html' title='About this document...' />
+<link rel='help' href='about.html' title='About this document...' />
+<link rel="next" href="node4.html" />
+<link rel="prev" href="contents.html" />
+<link rel="parent" href="bsdiff.html" />
+<link rel="next" href="node4.html" />
+<meta name='aesop' content='information' />
+<title>1. Module Interface</title>
+</head>
+<body>
+<DIV CLASS="navigation">
+<div id='top-navigation-panel' xml:id='top-navigation-panel'>
+<table align="center" width="100%" cellpadding="0" cellspacing="2">
+<tr>
+<td class='online-navigation'><a rel="prev" title="Contents"
+  href="contents.html"><img src='previous.png'
+border='0' height='32'  alt='Previous Page' width='32' /></A></td>
+<td class='online-navigation'><a rel="parent" title="cx_Logging"
+  href="bsdiff.html"><img src='up.png'
+border='0' height='32'  alt='Up One Level' width='32' /></A></td>
+<td class='online-navigation'><a rel="next" title="2. License"
+  href="node4.html"><img src='next.png'
+border='0' height='32'  alt='Next Page' width='32' /></A></td>
+<td align="center" width="100%">cx_Logging</td>
+<td class='online-navigation'><a rel="contents" title="Table of Contents"
+  href="contents.html"><img src='contents.png'
+border='0' height='32'  alt='Contents' width='32' /></A></td>
+<td class='online-navigation'><img src='blank.png'
+  border='0' height='32'  alt='' width='32' /></td>
+<td class='online-navigation'><img src='blank.png'
+  border='0' height='32'  alt='' width='32' /></td>
+</tr></table>
+<div class='online-navigation'>
+<b class="navlabel">Previous:</b>
+<a class="sectref" rel="prev" href="contents.html">Contents</A>
+<b class="navlabel">Up:</b>
+<a class="sectref" rel="parent" href="bsdiff.html">cx_Logging</A>
+<b class="navlabel">Next:</b>
+<a class="sectref" rel="next" href="node4.html">2. License</A>
+</div>
+<hr /></div>
+</DIV>
+<!--End of Navigation Panel-->
+
+<H1><A NAME="SECTION003000000000000000000"></A><A NAME="module"></A>
+<BR>
+1. Module Interface
+</H1>
+
+<P>
+<dl><dt><table cellpadding="0" cellspacing="0"><tr valign="baseline">
+  <td><nobr><b><tt id='l2h-1' xml:id='l2h-1' class="function">Diff</tt></b>(</nobr></td>
+  <td><var><var>origData</var>, <var>newData</var></var>)</td></tr></table></dt>
+<dd>
+  Perform a binary diff between the two pieces of data and return a tuple
+  consisting of the control tuples, diff block and extra block required to
+  reconstitute the new data.
+</dl>
+
+<P>
+<dl><dt><table cellpadding="0" cellspacing="0"><tr valign="baseline">
+  <td><nobr><b><tt id='l2h-2' xml:id='l2h-2' class="function">Patch</tt></b>(</nobr></td>
+  <td><var><var>origData</var>, <var>newDataLength</var>,
+      <var>controlTuples</var>, <var>diffBlock</var>, <var>extraBlock</var></var>)</td></tr></table></dt>
+<dd>
+  Return the new data given the original data, the length of the new data and
+  the output from the Diff method.
+</dl>
+
+<P>
+
+<DIV CLASS="navigation">
+<div class='online-navigation'>
+<p></p><hr />
+<table align="center" width="100%" cellpadding="0" cellspacing="2">
+<tr>
+<td class='online-navigation'><a rel="prev" title="Contents"
+  href="contents.html"><img src='previous.png'
+border='0' height='32'  alt='Previous Page' width='32' /></A></td>
+<td class='online-navigation'><a rel="parent" title="cx_Logging"
+  href="bsdiff.html"><img src='up.png'
+border='0' height='32'  alt='Up One Level' width='32' /></A></td>
+<td class='online-navigation'><a rel="next" title="2. License"
+  href="node4.html"><img src='next.png'
+border='0' height='32'  alt='Next Page' width='32' /></A></td>
+<td align="center" width="100%">cx_Logging</td>
+<td class='online-navigation'><a rel="contents" title="Table of Contents"
+  href="contents.html"><img src='contents.png'
+border='0' height='32'  alt='Contents' width='32' /></A></td>
+<td class='online-navigation'><img src='blank.png'
+  border='0' height='32'  alt='' width='32' /></td>
+<td class='online-navigation'><img src='blank.png'
+  border='0' height='32'  alt='' width='32' /></td>
+</tr></table>
+<div class='online-navigation'>
+<b class="navlabel">Previous:</b>
+<a class="sectref" rel="prev" href="contents.html">Contents</A>
+<b class="navlabel">Up:</b>
+<a class="sectref" rel="parent" href="bsdiff.html">cx_Logging</A>
+<b class="navlabel">Next:</b>
+<a class="sectref" rel="next" href="node4.html">2. License</A>
+</div>
+</div>
+<hr />
+<span class="release-info">Release 1.1, documentation updated on 9 March 2005.</span>
+</DIV>
+<!--End of Navigation Panel-->
+
+</BODY>
+</HTML>
