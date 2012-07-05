@@ -2,7 +2,7 @@ import logging
 import pycurl
 import urlparse
 import cStringIO
-import re
+import regex
 
 class CertificatePlatforms(object):
 	"""Maps platform names from rulesets to CA certificate sets"""
@@ -50,7 +50,7 @@ class HTTPFetcher(object):
 	"""Fetches HTTP(S) pages via PyCURL. CA certificates can be configured.
 	"""
 	
-	_headerRe = re.compile(r"(?P<name>\S+?): (?P<value>.*?)\r\n")
+	_headerRe = regex.compile(r"(?P<name>\S+?): (?P<value>.*?)\r\n")
 	
 	def __init__(self, platform, certPlatforms, fetchOptions, ruleTrie=None):
 		"""Create fetcher that validates certificates using selected

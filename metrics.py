@@ -86,7 +86,7 @@ class MarkupMetric(object):
 		doc1 = etree.parse(StringIO(s1), etree.HTMLParser())
 		doc2 = etree.parse(StringIO(s2), etree.HTMLParser())
 		
-		mapped1, mapped2 = self.mappedTrees(doc1, doc2)
+		mapped1, mapped2 = self.mappedTrees(doc1.getroot(), doc2.getroot())
 		
-		return Levenshtein.ratio(mapped1, mapped2)
+		return 1.0-Levenshtein.ratio(mapped1, mapped2)
 		

@@ -76,30 +76,35 @@ if __name__ == "__main__":
 	fetcherCACert = http_client.HTTPFetcher("cacert", platforms, fetchOptions, trie)
 	fetcherPlain = http_client.HTTPFetcher("default", platforms, fetchOptions)
 	
-	(r1, p1) = fetcherPlain.fetchHtml("http://akademikerförsäkring.se")
-	(r2, p2) = fetcher.fetchHtml("https://www.akademikerförsäkring.se")
-	(r3, p3) = fetcherCACert.fetchHtml("https://videolan.org")
-	
-	t1 = etree.parse(StringIO(p1), etree.HTMLParser())
-	t2 = etree.parse(StringIO(p2), etree.HTMLParser())
-	
-	(m1, m2) = metrics.MarkupMetric().mappedTrees(t1.getroot(), t2.getroot())
-	print len(m1), len(m2)
-	print m1
-	print "======"
-	print m2
-	print "L dist", Levenshtein.distance(m1, m2)
-	print "L ratio", 1.0-Levenshtein.ratio(m1, m2)
-	print "BS dist mapped", metrics.BSDiffMetric().distanceNormed(m1, m2)
-	print "BS dist orig", metrics.BSDiffMetric().distanceNormed(p1, p2)
-	
-	urls = t1.xpath("//a/@href | //img/@src | //link/@href")
-	
-	for url in urls:
-		url = unicode(url)
-		if not trie.acceptedScheme(url):
+	for plainUrl in mainPages:
+		try:
+			transformedUrl = trie.transformUrl(plainUrl)
+		except:
+			logging.error("Failed to transform plain URL %s", plainUrl)
 			continue
-		newUrl = trie.transformUrl(url)
-		if url != newUrl:
-			print url, "========>", newUrl
+		
+		if plainUrl == transformedUrl:
+			logging.warn("Identical URL: %s", plainUrl)
+			continue
+		
+		try:
+			logging.info("=**= Start %s => %s ****", plainUrl, transformedUrl)
+			logging.info("Fetching plain page %s", plainUrl)
+			plainRcode, plainPage = fetcherPlain.fetchHtml(plainUrl)
+			logging.info("Fetching transformed page %s", transformedUrl)
+			transformedRcode, transformedPage = fetcher.fetchHtml(transformedUrl)
+			
+			bsMetric = metrics.BSDiffMetric()
+			markupMetric = metrics.MarkupMetric()
+			
+			bsDistance = bsMetric.distanceNormed(plainPage, transformedPage)
+			markupDistance = markupMetric.distanceNormed(plainPage, transformedPage)
+			
+			logging.info("==== %s (%d) -> %s (%d) =====", plainUrl, len(plainPage), transformedUrl, len(transformedPage))
+			logging.info(">>>> BS: %0.4f Markup: %0.4f", bsDistance, markupDistance)
+		except KeyboardInterrupt:
+			raise
+		except:
+			logging.exception("Failed to process %s", plainUrl)
+		
 		

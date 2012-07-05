@@ -1,4 +1,4 @@
-import re
+import regex
 
 class Rule(object):
 	"""Represents one from->to rule element."""
@@ -10,8 +10,8 @@ class Rule(object):
 		attrs = ruleElem.attrib
 		self.fromPattern = attrs["from"]
 		#switch $1, $2... JS capture patterns to Python \1, \2...
-		self.toPattern = re.sub(r"\$(\d+)", r"\\\1", attrs["to"])
-		self.fromRe = re.compile(self.fromPattern)
+		self.toPattern = regex.sub(r"\$(\d+)", r"\\\1", attrs["to"])
+		self.fromRe = regex.compile(self.fromPattern)
 	
 	def apply(self, url):
 		"""Apply rule to URL string and return result."""
@@ -41,7 +41,7 @@ class Exclusion(object):
 		@param exclusionElem: <exclusion> element from lxml tree
 		"""
 		self.exclusionPattern = exclusionElem.attrib["pattern"]
-		self.exclusionRe = re.compile(self.exclusionPattern)
+		self.exclusionRe = regex.compile(self.exclusionPattern)
 	
 	def matches(self, url):
 		"""Returns true iff this exclusion rule matches given url
