@@ -1,7 +1,6 @@
 #Metrics for measuring similarity of two strings, HTML/XML DOM trees, etc.
 #They are likely not "proper metrics" in calculus sense.
 
-import logging
 from lxml import etree
 from cStringIO import StringIO
 

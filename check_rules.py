@@ -5,7 +5,6 @@ import os
 import glob
 import logging
 
-from cStringIO import StringIO
 from ConfigParser import SafeConfigParser
 
 from lxml import etree
@@ -14,7 +13,6 @@ import http_client
 import metrics
 from rules import Ruleset
 from rule_trie import RuleTrie
-import Levenshtein
 
 def convertLoglevel(levelString):
 	"""Converts string 'debug', 'info', etc. into corresponding
