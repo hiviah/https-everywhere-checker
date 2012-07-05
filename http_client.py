@@ -78,6 +78,35 @@ class HTTPFetcher(object):
 		parts[1] = newNetloc
 		return urlparse.urlunparse(parts)
 		
+	def absolutizeLocation(self, location, sourceUrl):
+		"""Returns location as absolute URL if location was relative,
+		unchanged otherwise.
+		
+		@param location: location to turn into absolute URL
+		@param sourceUrl: URL of page this location was encountered at
+		or URL which returned this location as 301/302 redirect
+		@returns: absolute URL of location
+		"""
+		parsedLoc = urlparse.urlparse(location)
+		
+		#location is absolute => do not change
+		if parsedLoc.scheme and parsedLoc.netloc:
+			return location
+			
+		if not sourceUrl.endswith("/"):
+			sourceUrl += ("/")
+			
+		if not parsedLoc.path.startswith("/"):
+			return sourceUrl + parsedLoc.path
+			
+		#last option is that location starts with / and thus replaces
+		#old location of sourceUrl, keeping scheme/host intact
+		parsedSource = urlparse.urlparse(sourceUrl)
+		parsedParts = list(parsedSource)
+		parsedParts[2] = location
+		return urlparse.urlunparse(parsedParts)
+		
+		
 	def fetchHtml(self, url):
 		"""Fetch HTML from given http/https URL. Return codes 301 and
 		302 are followed, URLs rewritten using HTTPS Everywhere rules.
@@ -118,6 +147,7 @@ class HTTPFetcher(object):
 					location = headers.get('Location')
 					if not location:
 						raise HTTPFetcherError("Redirect for '%s' missing Location" % newUrl)
+					location = self.absolutizeLocation(location, newUrl)
 					logging.debug("Following redirect %s => %s", newUrl, location)
 					
 					if self.ruleTrie:
