@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+﻿#!/usr/bin/env python
 
 import sys
 import os
@@ -76,8 +76,8 @@ if __name__ == "__main__":
 	fetcherCACert = http_client.HTTPFetcher("cacert", platforms, fetchOptions, trie)
 	fetcherPlain = http_client.HTTPFetcher("default", platforms, fetchOptions)
 	
-	(r1, p1) = fetcherPlain.fetchHtml("http://www.geotrust.com")
-	(r2, p2) = fetcher.fetchHtml("https://www.geotrust.com")
+	(r1, p1) = fetcherPlain.fetchHtml("http://akademikerförsäkring.se")
+	(r2, p2) = fetcher.fetchHtml("https://www.akademikerförsäkring.se")
 	(r3, p3) = fetcherCACert.fetchHtml("https://videolan.org")
 	
 	t1 = etree.parse(StringIO(p1), etree.HTMLParser())
@@ -89,7 +89,7 @@ if __name__ == "__main__":
 	print "======"
 	print m2
 	print "L dist", Levenshtein.distance(m1, m2)
-	print "L ratio", Levenshtein.ratio(m1, m2)
+	print "L ratio", 1.0-Levenshtein.ratio(m1, m2)
 	print "BS dist mapped", metrics.BSDiffMetric().distanceNormed(m1, m2)
 	print "BS dist orig", metrics.BSDiffMetric().distanceNormed(p1, p2)
 	

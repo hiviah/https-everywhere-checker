@@ -32,6 +32,12 @@ class DomainNode(object):
 		if domain == "":
 			return self.rulesets
 		
+		#make sure domain is in ASCII - either "plain old domain" or
+		#punycode-encoded IDN domain
+		if not isinstance(domain, unicode):
+			domain = domain.decode("utf-8")
+		domain = domain.encode("idna")
+		
 		parts = domain.rsplit(".", 1)
 		
 		if len(parts) == 1: #direct match on children

@@ -55,8 +55,8 @@ class Ruleset(object):
 	#extracts value of first attribute in list as a string
 	_strAttr = lambda attrList: unicode(attrList[0])
 	
-	#extract attribute value and convert to strings
-	_strAttrs = lambda attrList: tuple(unicode(attr) for attr in attrList)
+	#extract attribute value and decode to ASCII with IDN punycode encoding
+	_idnAttrs = lambda attrList: tuple(unicode(attr).encode("idna") for attr in attrList)
 	
 	#convert each etree Element of list into Rule
 	_rulesConvert = lambda elemList: [Rule(elem) for elem in elemList]
@@ -71,7 +71,7 @@ class Ruleset(object):
 		("name",	"@name", 		_strAttr),
 		("platform",	"@platform", 		_strAttr),
 		("defaultOff",	"@default_off", 	_strAttr),
-		("targets",	"target/@host",		_strAttrs),
+		("targets",	"target/@host",		_idnAttrs),
 		("rules",	"rule", 		_rulesConvert),
 		("exclusions",	"exclusion", 		_exclusionConvert),
 	]

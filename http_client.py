@@ -1,5 +1,6 @@
 import logging
 import pycurl
+import urlparse
 import cStringIO
 import re
 
@@ -66,6 +67,17 @@ class HTTPFetcher(object):
 		self.options = fetchOptions
 		self.ruleTrie = ruleTrie
 	
+	def idnEncodedUrl(self, url):
+		"""Encodes URL so that IDN domains are punycode-escaped. Has no
+		effect on plain old ASCII domain names.
+		"""
+		p = urlparse.urlparse(url)
+		netloc = isinstance(p.netloc, unicode) and p.netloc or p.netloc.decode("utf-8")
+		newNetloc = netloc.encode("idna")
+		parts = list(p)
+		parts[1] = newNetloc
+		return urlparse.urlunparse(parts)
+		
 	def fetchHtml(self, url):
 		"""Fetch HTML from given http/https URL. Return codes 301 and
 		302 are followed, URLs rewritten using HTTPS Everywhere rules.
@@ -85,6 +97,7 @@ class HTTPFetcher(object):
 			headerBuf = cStringIO.StringIO()
 			
 			try:
+				newUrl = self.idnEncodedUrl(newUrl)
 				c = pycurl.Curl()
 				c.setopt(c.URL, newUrl)
 				c.setopt(c.WRITEFUNCTION, buf.write)
