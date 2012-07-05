@@ -4,3 +4,4 @@ checker.config
 *.pyc
 *.pyo
 rules
+*.html
