@@ -102,9 +102,8 @@ class HTTPFetcher(object):
 		#last option is that location starts with / and thus replaces
 		#old location of sourceUrl, keeping scheme/host intact
 		parsedSource = urlparse.urlparse(sourceUrl)
-		parsedParts = list(parsedSource)
-		parsedParts[2] = location
-		return urlparse.urlunparse(parsedParts)
+		
+		return "%s://%s%s" % (parsedSource.scheme, parsedSource.netloc, parsedLoc.path)
 		
 		
 	def fetchHtml(self, url):
@@ -118,6 +117,9 @@ class HTTPFetcher(object):
 		@throws HTTPFetcherError: on failed fetch/redirection
 		"""
 		newUrl = url
+		
+		#set of URLs seen in redirects for cycle detection
+		seenUrls = set()
 	
 		#handle 301/302 redirects while also rewriting them with HTE rules
 		#limit redirect depth
@@ -127,6 +129,7 @@ class HTTPFetcher(object):
 			
 			try:
 				newUrl = self.idnEncodedUrl(newUrl)
+				seenUrls.add(newUrl)
 				c = pycurl.Curl()
 				c.setopt(c.URL, newUrl)
 				c.setopt(c.WRITEFUNCTION, buf.write)
@@ -156,8 +159,10 @@ class HTTPFetcher(object):
 							logging.debug("Redirect rewritten: %s => %s", location, newUrl)
 					else:
 						newUrl = location
-					continue
 				
+					if newUrl in seenUrls:
+						raise HTTPFetcherError("Cycle detected - URL already encountered: %s" % newUrl)
+					
 				return (httpCode, buf.getvalue())
 			finally:
 				buf.close()
