@@ -74,6 +74,20 @@ class DomainNode(object):
 		return "<DomainNode for '%s>" % (self.subDomain,)
 
 
+class RuleMatch(object):
+	"""Result of a rule match, contains transformed url and ruleset that
+	matched (might be None if no match was found).
+	"""
+	
+	def __init__(self, url, ruleset):
+		"""Create instance that records url and ruleset that matched.
+		
+		@param url: transformed url after applying ruleset
+		@param ruleset: ruleset that was used for the transform
+		"""
+		self.url = url
+		self.ruleset = ruleset
+	
 class RuleTrie(object):
 	"""Suffix trie for rulesets."""
 	
@@ -116,9 +130,11 @@ class RuleTrie(object):
 		return parsed.scheme in ("http", "https")
 		
 	def transformUrl(self, url):
-		"""Look for rules applicable to URL and apply first one.
+		"""Look for rules applicable to URL and apply first one. If no
+		ruleset matched, resulting RuleMatch object will have None set
+		as the matching ruleset.
 		
-		@returns: url transformed by rules in this trie
+		@returns: RuleMatch with tranformed URL and ruleset that applied
 		@throws: RuleTransformError if scheme is wrong (e.g. file:///)
 		"""
 		parsed = urlparse.urlparse(url)
@@ -132,8 +148,8 @@ class RuleTrie(object):
 		for ruleset in matching:
 			newUrl = ruleset.apply(url)
 			if newUrl != url:
-				return newUrl
-		return url
+				return RuleMatch(newUrl, ruleset)
+		return RuleMatch(url, None)
 	
 	def prettyPrint(self):
 		self.root.prettyPrint()

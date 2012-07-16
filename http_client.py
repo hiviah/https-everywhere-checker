@@ -123,6 +123,10 @@ class HTTPFetcher(object):
 		@throws HTTPFetcherError: on failed fetch/redirection
 		"""
 		newUrl = url
+		#While going through 301/302 redirects we might encounter URL
+		#that was rewritten using different platform and need to use
+		#that platform's certs for the next fetch.
+		newUrlPlatformPath = self.platformPath
 		
 		#set of URLs seen in redirects for cycle detection
 		seenUrls = set()
@@ -142,7 +146,8 @@ class HTTPFetcher(object):
 				c.setopt(c.HEADERFUNCTION, headerBuf.write)
 				c.setopt(c.CONNECTTIMEOUT, self.options.connectTimeout)
 				c.setopt(c.TIMEOUT, self.options.readTimeout)
-				c.setopt(c.CAPATH, self.platformPath)
+				c.setopt(c.CAPATH, newUrlPlatformPath)
+				#c.setopt(c.VERBOSE, 1)
 				c.perform()
 			
 				#shitty HTTP header parsing
@@ -161,7 +166,16 @@ class HTTPFetcher(object):
 					logging.debug("Following redirect %s => %s", newUrl, location)
 					
 					if self.ruleTrie:
-						newUrl = self.ruleTrie.transformUrl(location)
+						ruleMatch = self.ruleTrie.transformUrl(location)
+						newUrl = ruleMatch.url
+						
+						#Platform for cert validation might have changed.
+						#Record CA path for the platform or reset if not known.
+						if ruleMatch.ruleset:
+							newUrlPlatformPath = self.certPlatforms.getCAPath(ruleMatch.ruleset.platform)
+						else:
+							newUrlPlatformPath = self.platformPath
+							
 						if newUrl != location:
 							logging.debug("Redirect rewritten: %s => %s", location, newUrl)
 					else:

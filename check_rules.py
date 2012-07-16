@@ -70,19 +70,28 @@ if __name__ == "__main__":
 	for platform in havePlatforms:
 		platforms.addPlatform(platform, os.path.join(certdir, platform))
 	
-	fetcher = http_client.HTTPFetcher("default", platforms, fetchOptions, trie)
+	fetcherDefault = http_client.HTTPFetcher("default", platforms, fetchOptions, trie)
 	fetcherCACert = http_client.HTTPFetcher("cacert", platforms, fetchOptions, trie)
 	fetcherPlain = http_client.HTTPFetcher("default", platforms, fetchOptions)
 	
+	#fetchers to validate certchain of tranformed URLs
+	fetcherMap = {
+		"default": fetcherDefault,
+		"cacert": fetcherCACert,
+	}
+	
 	for plainUrl in mainPages:
 		try:
-			transformedUrl = trie.transformUrl(plainUrl)
+			ruleMatch = trie.transformUrl(plainUrl)
+			transformedUrl = ruleMatch.url
+			
+			if plainUrl == transformedUrl:
+				logging.warn("Identical URL: %s", plainUrl)
+				continue
+			
+			fetcher = fetcherMap[ruleMatch.ruleset.platform]
 		except:
 			logging.error("Failed to transform plain URL %s", plainUrl)
-			continue
-		
-		if plainUrl == transformedUrl:
-			logging.warn("Identical URL: %s", plainUrl)
 			continue
 		
 		try:
@@ -91,6 +100,15 @@ if __name__ == "__main__":
 			plainRcode, plainPage = fetcherPlain.fetchHtml(plainUrl)
 			logging.info("Fetching transformed page %s", transformedUrl)
 			transformedRcode, transformedPage = fetcher.fetchHtml(transformedUrl)
+			
+			#Compare HTTP return codes - if original page returned 2xx,
+			#but the transformed didn't, consider it an error in ruleset
+			#(note this is not symmetric, we don't care if orig page is broken).
+			#We don't handle 1xx codes for now.
+			if plainRcode//100 == 2 and transformedRcode//100 != 2:
+				logging.warn("Non-2xx HTTP code: %s (%d) => %s (%d)",
+					plainUrl, plainRcode, transformedUrl, transformedRcode)
+				continue
 			
 			bsMetric = metrics.BSDiffMetric()
 			markupMetric = metrics.MarkupMetric()
