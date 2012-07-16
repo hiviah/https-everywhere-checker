@@ -1,5 +1,5 @@
 #Metrics for measuring similarity of two strings, HTML/XML DOM trees, etc.
-#They are likely not "proper metrics" in calculus sense.
+#They are not (yet) guarranteed to be "proper metrics" in calculus sense.
 
 from lxml import etree
 from cStringIO import StringIO
@@ -8,13 +8,27 @@ import struct
 import bsdiff
 import Levenshtein
 
-class BSDiffMetric(object):
-	"""String similarity metric based on BSDiff."""
-
+class Metric(object):
+	"""Abstract interface for Metric objects."""
+	
 	def __init__(self):
 		pass
 	
 	def distanceNormed(self, s1, s2):
+		"""Return float distance metric of two strings s1 and s2 in
+		range [0, 1].
+		"""
+		raise NotImlementedError()
+	
+class BSDiffMetric(Metric):
+	"""String similarity metric based on BSDiff."""
+
+	def __init__(self):
+		Metric.__init__(self)
+	
+	def distanceNormed(self, s1, s2):
+		if len(s1) == 0 and len(s2) == 0:
+			return 0
 		
 		#bsdiff is not symmetric, so take max from both diffs
 		control, diffBlock, extra = bsdiff.Diff(s1, s2)
@@ -25,11 +39,11 @@ class BSDiffMetric(object):
 		
 		return max(extraRatio1, extraRatio2)
 
-class MarkupMetric(object):
+class MarkupMetric(Metric):
 	"""Metric for tree-like hierarchical languages - XML, HTML."""
 	
 	def __init__(self):
-		pass
+		Metric.__init__(self)
 	
 	def tagNameToCharMap(self, doc1, doc2, minIndex=0):
 		"""Returns a dict that maps element names to unicode characters uniquely.
@@ -82,6 +96,11 @@ class MarkupMetric(object):
 	def distanceNormed(self, s1, s2):
 		"""
 		"""
+		#Empty strings are not proper HTML/XML, but we can consider them
+		#same for our purpose.
+		if len(s1) == 0 and len(s2) == 0:
+			return 0
+		
 		doc1 = etree.parse(StringIO(s1), etree.HTMLParser())
 		doc2 = etree.parse(StringIO(s2), etree.HTMLParser())
 		
