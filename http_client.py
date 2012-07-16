@@ -170,6 +170,8 @@ class HTTPFetcher(object):
 					if newUrl in seenUrls:
 						raise HTTPFetcherError("Cycle detected - URL already encountered: %s" % newUrl)
 					
+					continue #fetch redirected location
+					
 				return (httpCode, buf.getvalue())
 			finally:
 				buf.close()
