@@ -78,33 +78,39 @@ class HTTPFetcher(object):
 		parts[1] = newNetloc
 		return urlparse.urlunparse(parts)
 		
-	def absolutizeLocation(self, location, sourceUrl):
-		"""Returns location as absolute URL if location was relative,
-		unchanged otherwise.
+	def absolutizeUrl(self, base, url):
+		"""Returns absolutized URL in respect to base URL as per
+		RFC 3986. If url is already absolute (with scheme), return url.
 		
-		@param location: location to turn into absolute URL
-		@param sourceUrl: URL of page this location was encountered at
-		or URL which returned this location as 301/302 redirect
-		@returns: absolute URL of location
+		@param base: base URL of original document
+		@param url: URL to be resolved against base URL
 		"""
-		parsedLoc = urlparse.urlparse(location)
+		#urljoin fails for some of the abnormal examples in section 5.4.2
+		#of RFC 3986 if there are too many ./ or ../
+		#See http://bugs.python.org/issue3647
+		resolved = urlparse.urljoin(base, url)
+		resolvedParsed = urlparse.urlparse(resolved)
+		path = resolvedParsed.path
 		
-		#location is absolute => do not change
-		if parsedLoc.scheme and parsedLoc.netloc:
-			return location
-			
-		if not sourceUrl.endswith("/"):
-			sourceUrl += ("/")
-			
-		if not parsedLoc.path.startswith("/"):
-			return sourceUrl + parsedLoc.path
-			
-		#last option is that location starts with / and thus replaces
-		#old location of sourceUrl, keeping scheme/host intact
-		parsedSource = urlparse.urlparse(sourceUrl)
+		#covers corner cases like "g:h" relative URL
+		if path == "" or not path.startswith("/"):
+			return resolved
 		
-		return "%s://%s%s" % (parsedSource.scheme, parsedSource.netloc, parsedLoc.path)
+		#strip any leading ./ or ../
+		pathParts = path[1:].split("/")
+		while len(pathParts) > 0 and pathParts[0] in (".", ".."):
+			pathParts = pathParts[1:]
 		
+		if len(pathParts) > 0:
+			newPath = "/" + "/".join(pathParts)
+		else:
+			newPath = "/"
+			
+		#replace old path and unparse into URL
+		urlParts = resolvedParsed[0:2] + (newPath,) + resolvedParsed[3:6]
+		newUrl = urlparse.urlunparse(urlParts)
+		
+		return newUrl
 		
 	def fetchHtml(self, url):
 		"""Fetch HTML from given http/https URL. Return codes 301 and
@@ -150,7 +156,8 @@ class HTTPFetcher(object):
 					location = headers.get('Location')
 					if not location:
 						raise HTTPFetcherError("Redirect for '%s' missing Location" % newUrl)
-					location = self.absolutizeLocation(location, newUrl)
+					
+					location = self.absolutizeUrl(newUrl, location)
 					logging.debug("Following redirect %s => %s", newUrl, location)
 					
 					if self.ruleTrie:
