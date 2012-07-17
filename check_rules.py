@@ -55,6 +55,7 @@ if __name__ == "__main__":
 		ruleset = Ruleset(etree.parse(file(xmlFname)).getroot(), xmlFname)
 		if ruleset.defaultOff:
 			logging.debug("Skipping rule '%s', reason: %s", ruleset.name, ruleset.defaultOff)
+			continue
 		for target in ruleset.uniqueTargetFQDNs():
 			targetHTTPLangingPage = "http://%s/" % target
 			if not ruleset.excludes(targetHTTPLangingPage) and "*" not in targetHTTPLangingPage:
