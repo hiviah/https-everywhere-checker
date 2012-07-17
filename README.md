@@ -31,8 +31,8 @@ causes some HTTP 400 responses. Response is OK for the first request to the
 cache, the second one returns HTTP 400. Here are sample URLs that show the
 behavior:
 
-https://wiki.vorratsdatenspeicherung.de/
-https://www.vorratsdatenspeicherung.de/
+`https://wiki.vorratsdatenspeicherung.de/`  
+`https://www.vorratsdatenspeicherung.de/`
 
 If you fetch the two URLs above in any order, the first URL fetched will return
 HTTP 200, the second will return HTTP 400.
