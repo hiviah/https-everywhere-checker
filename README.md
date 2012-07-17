@@ -23,3 +23,16 @@ Copy `checker.config.sample` to `checker.config` and change the `rulesdir`
 under `[rulesets]` to point to a directory with the XML files of HTTPS
 Everywhere rules (usually the `src/chrome/content/rules` of locally checked out
 git tree of HTTPS Everywhere).
+
+## Known bugs
+
+PyCURL has some weird interaction with HTTPS and Varnish/proxy_html module that
+causes some HTTP 400 responses. Response is OK for the first request to the
+cache, the second one returns HTTP 400. Here are sample URLs that show the
+behavior:
+
+https://wiki.vorratsdatenspeicherung.de/
+https://www.vorratsdatenspeicherung.de/
+
+If you fetch the two URLs above in any order, the first URL fetched will return
+HTTP 200, the second will return HTTP 400.
