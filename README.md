@@ -26,6 +26,8 @@ git tree of HTTPS Everywhere).
 
 ## Known bugs
 
+### Varnish/proxy_html
+
 PyCURL has some weird interaction with HTTPS and Varnish/proxy_html module that
 causes some HTTP 400 responses. Response is OK for the first request to the
 cache, the second one returns HTTP 400. Here are sample URLs that show the
@@ -36,3 +38,12 @@ behavior:
 
 If you fetch the two URLs above in any order, the first URL fetched will return
 HTTP 200, the second will return HTTP 400.
+
+### At most 9 capture groups in rule supported
+
+This is a workaround for ambiguous rewrites in rules such as:
+
+    <rule from="^http://(www\.)?01\.org/" to="https://$101.org/" />
+
+The $101 would actually mean 101-st group, so we assume that only first digit
+after $ denotes the group (which is how it seems to work in javascript).

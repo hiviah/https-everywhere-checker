@@ -9,8 +9,10 @@ class Rule(object):
 		"""
 		attrs = ruleElem.attrib
 		self.fromPattern = attrs["from"]
-		#switch $1, $2... JS capture patterns to Python \1, \2...
-		self.toPattern = regex.sub(r"\$(\d+)", r"\\\1", attrs["to"])
+		#Switch $1, $2... JS capture patterns to Python \g<1>, \g<2>...
+		#The \g<1> named capture is used instead of \1 because it would
+		#break for rules whose domain begins with a digit.
+		self.toPattern = regex.sub(r"\$(\d)", r"\\g<\1>", attrs["to"])
 		self.fromRe = regex.compile(self.fromPattern)
 	
 	def apply(self, url):

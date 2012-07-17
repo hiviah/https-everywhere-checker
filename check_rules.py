@@ -106,8 +106,9 @@ if __name__ == "__main__":
 			#(note this is not symmetric, we don't care if orig page is broken).
 			#We don't handle 1xx codes for now.
 			if plainRcode//100 == 2 and transformedRcode//100 != 2:
-				logging.warn("Non-2xx HTTP code: %s (%d) => %s (%d)",
-					plainUrl, plainRcode, transformedUrl, transformedRcode)
+				logging.error("Non-2xx HTTP code: %s (%d) => %s (%d). Rulefile: %s",
+					plainUrl, plainRcode, transformedUrl, transformedRcode,
+					os.path.basename(ruleMatch.ruleset.filename))
 				continue
 			
 			bsMetric = metrics.BSDiffMetric()
@@ -120,7 +121,8 @@ if __name__ == "__main__":
 			logging.info(">>>> BS: %0.4f Markup: %0.4f", bsDistance, markupDistance)
 		except KeyboardInterrupt:
 			raise
-		except:
-			logging.exception("Failed to process %s", plainUrl)
+		except Exception, e:
+			logging.exception("Failed to process %s: %s. Rulefile: %s",
+				plainUrl, e, os.path.basename(ruleMatch.ruleset.filename))
 		
 		
