@@ -52,7 +52,7 @@ if __name__ == "__main__":
 	mainPages = set()
 	
 	for xmlFname in xmlFnames:
-		ruleset = Ruleset(etree.parse(file(xmlFname)).getroot())
+		ruleset = Ruleset(etree.parse(file(xmlFname)).getroot(), xmlFname)
 		if ruleset.defaultOff:
 			logging.debug("Skipping rule '%s', reason: %s", ruleset.name, ruleset.defaultOff)
 		for target in ruleset.uniqueTargetFQDNs():

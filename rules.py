@@ -76,9 +76,12 @@ class Ruleset(object):
 		("exclusions",	"exclusion", 		_exclusionConvert),
 	]
 	
-	def __init__(self, xmlTree):
+	def __init__(self, xmlTree, filename):
 		"""Create instance from given XML (sub)tree.
+		
 		@param xmlTree: XML (sub)tree corresponding to the <ruleset> element
+		@param filename: filename this ruleset originated from (for
+		reporting purposes)
 		"""
 		root = xmlTree
 		#set default values for rule attributes, makes it easier for
@@ -89,6 +92,7 @@ class Ruleset(object):
 		self.rules = []
 		self.targets = []
 		self.exclusions = []
+		self.filename = filename
 		
 		for (attrName, xpath, conversion) in self._attrConvert:
 			elems = root.xpath(xpath)
