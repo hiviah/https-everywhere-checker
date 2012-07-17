@@ -79,7 +79,7 @@ if __name__ == "__main__":
 			continue
 		for target in ruleset.uniqueTargetFQDNs():
 			targetHTTPLangingPage = "http://%s/" % target
-			if not ruleset.excludes(targetHTTPLangingPage) and "*" not in targetHTTPLangingPage:
+			if not ruleset.excludes(targetHTTPLangingPage):
 				mainPages.add(targetHTTPLangingPage)
 			else:
 				logging.debug("Skipping landing page %s", targetHTTPLangingPage)
