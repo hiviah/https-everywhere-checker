@@ -138,9 +138,9 @@ class HTTPFetcher(object):
 			headerBuf = cStringIO.StringIO()
 			
 			try:
+				c = pycurl.Curl()
 				newUrl = self.idnEncodedUrl(newUrl)
 				seenUrls.add(newUrl)
-				c = pycurl.Curl()
 				c.setopt(c.URL, newUrl)
 				c.setopt(c.WRITEFUNCTION, buf.write)
 				c.setopt(c.HEADERFUNCTION, headerBuf.write)
@@ -190,6 +190,7 @@ class HTTPFetcher(object):
 			finally:
 				buf.close()
 				headerBuf.close()
+				c.close()
 			
 		raise HTTPFetcherError("Too many redirects while fetching '%s'" % url)
 
