@@ -124,8 +124,8 @@ class Ruleset(object):
 		return url #nothing rewritten
 		
 	def uniqueTargetFQDNs(self):
-		"""Returns unique FQDNs found in <target> elements. Wildcards are
-		stripped. Any FQDNs with wildcard TLD part are skipped.
+		"""Returns unique FQDNs found in <target> elements.
+		Any FQDNs with wildcard TLD part are skipped.
 		
 		@returns: iterable of FQDN strings
 		"""
@@ -133,8 +133,6 @@ class Ruleset(object):
 		for target in self.targets:
 			if target.endswith(".*"):
 				continue
-			if target.startswith("*."):
-				target = target[2:]
 			uniqueFQDNs.add(target)
 		
 		return uniqueFQDNs
