@@ -20,3 +20,9 @@ redirect_depth = 10
 logfile = -
 loglevel = debug
 
+#Metric and threshold for marking two HTML pages "different"
+# metric - what metric to use, either "markup" or "bsdiff"
+# threshold - float value in range [0, 1]; distance >= threshold will be reported
+[thresholds]
+metric = markup
+max_distance = 0.1

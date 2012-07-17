@@ -25,6 +25,22 @@ def convertLoglevel(levelString):
 	except AttributeError:
 		raise ValueError("No such loglevel - %s" % levelString)
 
+def getMetricClass(metricType):
+	"""Get class for metric type from config file.
+	
+	@raises ValueError if the metric type is unknown
+	"""
+	metricMap = {
+		"markup": metrics.MarkupMetric,
+		"bsdiff": metrics.BSDiffMetric,
+	}
+	
+	if metricType not in metricMap:
+		raise ValueError("Metric type '%s' is not known" % metricType)
+	
+	return metricMap[metricType]
+
+
 if __name__ == "__main__":
 	if len(sys.argv) < 2:
 		print >> sys.stderr, "check_rules.py checker.config"
@@ -44,6 +60,11 @@ if __name__ == "__main__":
 		
 	ruledir = config.get("rulesets", "rulesdir")
 	certdir = config.get("certificates", "basedir")
+	
+	metricName = config.get("thresholds", "metric")
+	thresholdDistance = config.getfloat("thresholds", "max_distance")
+	metricClass = getMetricClass(metricName)
+	metric = metricClass()
 	
 	xmlFnames = glob.glob(os.path.join(ruledir, "*.xml"))
 	trie = RuleTrie()
@@ -112,14 +133,14 @@ if __name__ == "__main__":
 					os.path.basename(ruleMatch.ruleset.filename))
 				continue
 			
-			bsMetric = metrics.BSDiffMetric()
-			markupMetric = metrics.MarkupMetric()
+			distance = metric.distanceNormed(plainPage, transformedPage)
 			
-			bsDistance = bsMetric.distanceNormed(plainPage, transformedPage)
-			markupDistance = markupMetric.distanceNormed(plainPage, transformedPage)
+			logging.debug("==== D: %0.4f; %s (%d) -> %s (%d) =====",
+				distance,plainUrl, len(plainPage), transformedUrl, len(transformedPage))
 			
-			logging.info("==== %s (%d) -> %s (%d) =====", plainUrl, len(plainPage), transformedUrl, len(transformedPage))
-			logging.info(">>>> BS: %0.4f Markup: %0.4f", bsDistance, markupDistance)
+			if distance >= thresholdDistance:
+				logging.info("Big distance %0.4f: %s (%d) -> %s (%d) =====",
+					distance, plainUrl, len(plainPage), transformedUrl, len(transformedPage))
 		except KeyboardInterrupt:
 			raise
 		except Exception, e:
