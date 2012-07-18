@@ -108,7 +108,7 @@ if __name__ == "__main__":
 			transformedUrl = ruleMatch.url
 			
 			if plainUrl == transformedUrl:
-				logging.warn("Identical URL: %s", plainUrl)
+				logging.info("Identical URL: %s", plainUrl)
 				continue
 			
 			fetcher = fetcherMap[ruleMatch.ruleset.platform]
@@ -117,10 +117,10 @@ if __name__ == "__main__":
 			continue
 		
 		try:
-			logging.info("=**= Start %s => %s ****", plainUrl, transformedUrl)
-			logging.info("Fetching plain page %s", plainUrl)
+			logging.debug("=**= Start %s => %s ****", plainUrl, transformedUrl)
+			logging.debug("Fetching plain page %s", plainUrl)
 			plainRcode, plainPage = fetcherPlain.fetchHtml(plainUrl)
-			logging.info("Fetching transformed page %s", transformedUrl)
+			logging.debug("Fetching transformed page %s", transformedUrl)
 			transformedRcode, transformedPage = fetcher.fetchHtml(transformedUrl)
 			
 			#Compare HTTP return codes - if original page returned 2xx,
