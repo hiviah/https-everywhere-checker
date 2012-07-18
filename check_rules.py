@@ -106,6 +106,9 @@ if __name__ == "__main__":
 		try:
 			ruleMatch = trie.transformUrl(plainUrl)
 			transformedUrl = ruleMatch.url
+			ruleFname = None
+			if ruleMatch.ruleset:
+				ruleFname = os.path.basename(ruleMatch.ruleset.filename)
 			
 			if plainUrl == transformedUrl:
 				logging.info("Identical URL: %s", plainUrl)
@@ -113,7 +116,7 @@ if __name__ == "__main__":
 			
 			fetcher = fetcherMap[ruleMatch.ruleset.platform]
 		except:
-			logging.error("Failed to transform plain URL %s", plainUrl)
+			logging.exception("Failed to transform plain URL %s", plainUrl)
 			continue
 		
 		try:
@@ -130,7 +133,7 @@ if __name__ == "__main__":
 			if plainRcode//100 == 2 and transformedRcode//100 != 2:
 				logging.error("Non-2xx HTTP code: %s (%d) => %s (%d). Rulefile: %s",
 					plainUrl, plainRcode, transformedUrl, transformedRcode,
-					os.path.basename(ruleMatch.ruleset.filename))
+					ruleFname)
 				continue
 			
 			distance = metric.distanceNormed(plainPage, transformedPage)
@@ -139,12 +142,12 @@ if __name__ == "__main__":
 				distance,plainUrl, len(plainPage), transformedUrl, len(transformedPage))
 			
 			if distance >= thresholdDistance:
-				logging.info("Big distance %0.4f: %s (%d) -> %s (%d) =====",
-					distance, plainUrl, len(plainPage), transformedUrl, len(transformedPage))
+				logging.info("Big distance %0.4f: %s (%d) -> %s (%d). Rulefile: %s =====",
+					distance, plainUrl, len(plainPage), transformedUrl, len(transformedPage), ruleFname)
 		except KeyboardInterrupt:
 			raise
 		except Exception, e:
 			logging.exception("Failed to process %s: %s. Rulefile: %s",
-				plainUrl, e, os.path.basename(ruleMatch.ruleset.filename))
+				plainUrl, e, ruleFname)
 		
 		
