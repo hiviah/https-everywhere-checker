@@ -1,5 +1,7 @@
 # HTTPS Everywhere Rule Checker
 
+Author: Ondrej Mikle, CZ.NIC (ondrej.mikle |at_sign| nic.cz)
+
 ## Installation and requirements
 
 You'll need following packages commonly present in distros:
@@ -23,6 +25,45 @@ Copy `checker.config.sample` to `checker.config` and change the `rulesdir`
 under `[rulesets]` to point to a directory with the XML files of HTTPS
 Everywhere rules (usually the `src/chrome/content/rules` of locally checked out
 git tree of HTTPS Everywhere).
+
+## Running
+
+Once you have modified the config, run:
+
+    python check_rules.py checker.config
+
+Output will be written to selected log file, infos/warnings/errors contain the
+useful information.
+
+## Features
+
+ * Attempts to follow Firefox behavior as closely as possible (including
+   rewriting HTTP redirects according to rules; well except for Javascript and
+   meta-redirects)
+ * IDN domain support
+ * Currently two metrics on "distance" of two resources implemented, one is
+   purely string-based, the other tries to measure "similarity of the shape
+   of DOM tree"
+ * Multi-threaded scanner
+ * Support for various "platforms" (e.g. CAcert), i.e. sets of CA certificate
+   sets which can be switched during following of redirects
+
+## What errors in rulesets can be detected
+
+ * big difference in HTML page structure
+ * error in ruleset - declared target that no rule rewrites, bad regexps
+   (usually capture groups are wrong), incomplete FQDNs, non-existent domains
+ * HTTP 200 in original page, while rewritten page returns 4xx/5xx
+ * cycle detection in redirects
+ * transvalid certificates (incomplete chains)
+ * other invalid certificate detection (self-signed, expired, CN mismatch...)
+ 
+## False positives and shortcomings
+
+ * Some pages deliberately have different HTTP and HTTPS page, some for example
+   redirect to different page under https
+ * URLs to scan are naively guessed from target hosts, having test set of URLs
+   in a ruleset would improve it (better coverage)
 
 ## Known bugs
 
