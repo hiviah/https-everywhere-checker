@@ -26,7 +26,7 @@ git tree of HTTPS Everywhere).
 
 ## Known bugs
 
-### Varnish/proxy_html
+### CURL/NSS weird interaction in certificate verification
 
 PyCURL has some weird interaction with HTTPS and Varnish/proxy_html module that
 causes some HTTP 400 responses. Response is OK for the first request to the
@@ -39,12 +39,15 @@ behavior:
 If you fetch the two URLs above in any order, the first URL fetched will return
 HTTP 200, the second will return HTTP 400.
 
-For some obscure reason, setting "c.setopt(c.SSL_VERIFYPEER, 0)" makes it work
-correctly (c is a pycurl.Curl() object). However, that turns of certchain
+For some obscure reason, setting `c.setopt(c.SSL_VERIFYPEER, 0)` makes it work
+correctly (c is a pycurl.Curl() object). However, that turns off certchain
 validation and is thus not of much use. In both cases the HTTP headers seem
-identical, SNI is sent in both cases, ciphersuite is identical...beats me.
+identical, SNI is sent in both cases, ciphersuite is identical.
 
-Maybe curl being compiled with NSS has something to do with it?
+I tried to build curl/libcurl with `--without-nss` and the problem goes away.
+Apparently NSS does not like how CA certs are setup, but I can't find the right
+way to do it. NSS takes `$SSL_DIR` containing its own database of certs (seems
+that it can't be changed at runtime).
 
 ### At most 9 capture groups in rule supported
 
