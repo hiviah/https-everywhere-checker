@@ -7,11 +7,15 @@ rulesdir = /path/to/https-everywhere/src/chrome/content/rules
 basedir = platform_certs
 
 #HTTP(S) fetching options
-#Timeouts are in seconds.
+# Timeouts are in seconds.
+# user_agent is optional, by default PyCURL's UA is used
+# curl_verbose - optional boolean parameter to turn on PyCURL debug output
 [http]
 connect_timeout = 10
 read_timeout = 15
 redirect_depth = 10
+#user_agent = Mozilla/5.0 (X11; Linux x86_64; rv:14.0) Gecko/20100101 Firefox/14.0.1
+#curl_verbose = true
 
 #Logging
 # logfile - filename or use - for stderr

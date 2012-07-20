@@ -61,6 +61,13 @@ if __name__ == "__main__":
 	ruledir = config.get("rulesets", "rulesdir")
 	certdir = config.get("certificates", "basedir")
 	
+	#get all platform dirs, make sure "default" is among them
+	certdirFiles = glob.glob(os.path.join(certdir, "*"))
+	havePlatforms = set([os.path.basename(fname) for fname in certdirFiles if os.path.isdir(fname)])
+	logging.debug("Loaded certificate platforms: %s", ",".join(havePlatforms))
+	if "default" not in havePlatforms:
+		raise RuntimeError("Platform 'default' is missing from certificate directories")
+	
 	metricName = config.get("thresholds", "metric")
 	thresholdDistance = config.getfloat("thresholds", "max_distance")
 	metricClass = getMetricClass(metricName)
@@ -86,35 +93,35 @@ if __name__ == "__main__":
 		trie.addRuleset(ruleset)
 	
 	fetchOptions = http_client.FetchOptions(config)
+	fetcherMap = dict() #maps platform to fetcher
 	
-	platforms = http_client.CertificatePlatforms(certdir)
-	havePlatforms = ["cacert"]
+	platforms = http_client.CertificatePlatforms(os.path.join(certdir, "default"))
 	for platform in havePlatforms:
+		#adding "default" again won't break things
 		platforms.addPlatform(platform, os.path.join(certdir, platform))
+		fetcher = http_client.HTTPFetcher(platform, platforms, fetchOptions, trie)
+		fetcherMap[platform] = fetcher
 	
-	fetcherDefault = http_client.HTTPFetcher("default", platforms, fetchOptions, trie)
-	fetcherCACert = http_client.HTTPFetcher("cacert", platforms, fetchOptions, trie)
+	#fetches pages with unrewritten URLs
 	fetcherPlain = http_client.HTTPFetcher("default", platforms, fetchOptions)
-	
-	#fetchers to validate certchain of tranformed URLs
-	fetcherMap = {
-		"default": fetcherDefault,
-		"cacert": fetcherCACert,
-	}
 	
 	for plainUrl in mainPages:
 		try:
 			ruleMatch = trie.transformUrl(plainUrl)
 			transformedUrl = ruleMatch.url
 			ruleFname = None
-			if ruleMatch.ruleset:
-				ruleFname = os.path.basename(ruleMatch.ruleset.filename)
 			
 			if plainUrl == transformedUrl:
 				logging.info("Identical URL: %s", plainUrl)
 				continue
 			
-			fetcher = fetcherMap[ruleMatch.ruleset.platform]
+			#URL was transformed, thus ruleset must exist that did it
+			ruleFname = os.path.basename(ruleMatch.ruleset.filename)
+			fetcher = fetcherMap.get(ruleMatch.ruleset.platform)
+			if not fetcher:
+				logging.warn("Unknown platform '%s', using 'default' instead. Rulefile: %s.",
+					ruleMatch.ruleset.platform, ruleFname)
+				fetcher = fetcherMap["default"]
 		except:
 			logging.exception("Failed to transform plain URL %s", plainUrl)
 			continue

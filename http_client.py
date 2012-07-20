@@ -42,6 +42,12 @@ class FetchOptions(object):
 		self.connectTimeout = config.getint("http", "connect_timeout")
 		self.readTimeout = config.getint("http", "read_timeout")
 		self.redirectDepth = config.getint("http", "redirect_depth")
+		self.userAgent = None
+		self.curlVerbose = False
+		if config.has_option("http", "user_agent"):
+			self.userAgent = config.get("http", "user_agent")
+		if config.has_option("http", "curl_verbose"):
+			self.curlVerbose = config.getboolean("http", "curl_verbose")
 	
 class HTTPFetcherError(RuntimeError):
 	pass
@@ -146,8 +152,12 @@ class HTTPFetcher(object):
 				c.setopt(c.HEADERFUNCTION, headerBuf.write)
 				c.setopt(c.CONNECTTIMEOUT, self.options.connectTimeout)
 				c.setopt(c.TIMEOUT, self.options.readTimeout)
+				#c.setopt(c.SSL_VERIFYPEER, 0)
+				#c.setopt(c.SSL_VERIFYHOST, 0)
 				c.setopt(c.CAPATH, newUrlPlatformPath)
-				#c.setopt(c.VERBOSE, 1)
+				if self.options.userAgent:
+					c.setopt(c.USERAGENT, self.options.userAgent)
+				c.setopt(c.VERBOSE, self.options.curlVerbose)
 				c.perform()
 			
 				#shitty HTTP header parsing
@@ -171,6 +181,9 @@ class HTTPFetcher(object):
 						
 						#Platform for cert validation might have changed.
 						#Record CA path for the platform or reset if not known.
+						#Not really sure fallback to first CA platform is always
+						#correct, but it's expected that the platforms would be
+						#same as the originating site.
 						if ruleMatch.ruleset:
 							newUrlPlatformPath = self.certPlatforms.getCAPath(ruleMatch.ruleset.platform)
 						else:

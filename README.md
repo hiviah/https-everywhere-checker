@@ -39,6 +39,13 @@ behavior:
 If you fetch the two URLs above in any order, the first URL fetched will return
 HTTP 200, the second will return HTTP 400.
 
+For some obscure reason, setting "c.setopt(c.SSL_VERIFYPEER, 0)" makes it work
+correctly (c is a pycurl.Curl() object). However, that turns of certchain
+validation and is thus not of much use. In both cases the HTTP headers seem
+identical, SNI is sent in both cases, ciphersuite is identical...beats me.
+
+Maybe curl being compiled with NSS has something to do with it?
+
 ### At most 9 capture groups in rule supported
 
 This is a workaround for ambiguous rewrites in rules such as:
