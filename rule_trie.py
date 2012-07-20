@@ -1,5 +1,46 @@
 import urlparse
 
+## Rule trie
+#
+# Rule trie is a suffix tree that resolves which rulesets should apply for a
+# given FDQN. FQDN is first tranformed from potential IDN form into punycode
+# ASCII. Every node in the tree has a list of rulesets that maps the part of 
+# FQDN between dots to list/set of rulesets.
+#
+# Children subdomains are mapped using dict.
+#
+#
+#                               +--------+
+#                           +---| root . |----+
+#                           |   +--------+    |
+#                           |                 |
+#                           |                 |
+#                           v                 v
+#                        +-----+           +-----+
+#                  +-----|  *  |     +-----| com |-----+
+#                  |     +-----+     |     +-----+     |
+#                  |                 |                 |
+#                  v                 v                 v
+#              +------+          +------+            +----+
+#           +--|google|---+      |google|-+      +---|blee|---+
+#           |  +------+   |      +------+ |      |   +----+   |
+#           |     |       |       |       |      |     |      |
+#           |     |       |       |       |      |     |      |
+#           v     v       v       v       v      v     v      v
+#         +---+ +---+ +----+    +---+   +---+  +---+ +----+ +---+
+#         | * | |www| |docs|    | * |   |www|  |www| |www2| |ssl|
+#         +---+ +---+ +----+    +---+   +---+  +---+ +----+ +---+
+#
+# At every node of the tree, there might be rulesets present. If a domain
+# a.b.c is looked up, at every location of * the search is branched into
+# multiple children - one with * and the other matching the domain part
+# exactly.
+#
+# Assuming complexity of lookup in dict is O(1), lookup of FQDN consisting
+# of N parts is O(N) if there are no * in the tree. Otherwise in theory
+# it could be O(2^N), but the HTTPS Everywhere rules require * only at the 
+# beginning or end, so we still get O(N).
+
 class RuleTransformError(ValueError):
 	"""Thrown when invalid scheme like file:/// is attempted to be
 	transformed.
