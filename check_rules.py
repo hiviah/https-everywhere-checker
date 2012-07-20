@@ -4,6 +4,9 @@ import sys
 import os
 import glob
 import logging
+import threading
+import Queue
+import time
 
 from ConfigParser import SafeConfigParser
 
@@ -41,6 +44,78 @@ def getMetricClass(metricType):
 	return metricMap[metricType]
 
 
+class ComparisonTask(object):
+	"""Container for objects necessary for one plain/rewritten URL comparison.
+	"""
+	
+	def __init__(self, plainUrl, transformedUrl, fetcherPlain, fetcherRewriting, ruleFname):
+		self.plainUrl = plainUrl
+		self.transformedUrl = transformedUrl
+		self.fetcherPlain = fetcherPlain
+		self.fetcherRewriting = fetcherRewriting
+		self.ruleFname = ruleFname
+	
+class UrlComparisonThread(threading.Thread):
+	"""Thread worker for comparing plain and rewritten URLs.
+	"""
+	
+	def __init__(self, taskQueue, metric, thresholdDistance):
+		"""
+		Comparison thread running HTTP/HTTPS scans.
+		
+		@param taskQueue: Queue.Queue filled with ComparisonTask objects
+		@param metric: metric.Metric instance
+		@param threshold: min distance that is reported as "too big"
+		"""
+		self.taskQueue = taskQueue
+		self.metric = metric
+		self.thresholdDistance = thresholdDistance
+		threading.Thread.__init__(self)
+
+	def run(self):
+		while True:
+			task = self.taskQueue.get()
+			
+			plainUrl = task.plainUrl
+			transformedUrl = task.transformedUrl
+			fetcherPlain = task.fetcherPlain
+			fetcherRewriting = task.fetcherRewriting
+			ruleFname = task.ruleFname
+			
+			try:
+				logging.debug("=**= Start %s => %s ****", plainUrl, transformedUrl)
+				logging.debug("Fetching plain page %s", plainUrl)
+				plainRcode, plainPage = fetcherPlain.fetchHtml(plainUrl)
+				logging.debug("Fetching transformed page %s", transformedUrl)
+				transformedRcode, transformedPage = fetcherRewriting.fetchHtml(transformedUrl)
+				
+				#Compare HTTP return codes - if original page returned 2xx,
+				#but the transformed didn't, consider it an error in ruleset
+				#(note this is not symmetric, we don't care if orig page is broken).
+				#We don't handle 1xx codes for now.
+				if plainRcode//100 == 2 and transformedRcode//100 != 2:
+					logging.error("Non-2xx HTTP code: %s (%d) => %s (%d). Rulefile: %s",
+						plainUrl, plainRcode, transformedUrl, transformedRcode,
+						ruleFname)
+					continue
+				
+				distance = self.metric.distanceNormed(plainPage, transformedPage)
+				
+				logging.debug("==== D: %0.4f; %s (%d) -> %s (%d) =====",
+					distance,plainUrl, len(plainPage), transformedUrl, len(transformedPage))
+				
+				if distance >= self.thresholdDistance:
+					logging.info("Big distance %0.4f: %s (%d) -> %s (%d). Rulefile: %s =====",
+						distance, plainUrl, len(plainPage), transformedUrl, len(transformedPage), ruleFname)
+			except Exception, e:
+				logging.exception("Failed to process %s: %s. Rulefile: %s",
+					plainUrl, e, ruleFname)
+			finally:
+				self.taskQueue.task_done()
+				logging.info("Finished comparing %s -> %s. Rulefile: %s.",
+					plainUrl, transformedUrl, ruleFname)
+
+
 if __name__ == "__main__":
 	if len(sys.argv) < 2:
 		print >> sys.stderr, "check_rules.py checker.config"
@@ -60,6 +135,8 @@ if __name__ == "__main__":
 		
 	ruledir = config.get("rulesets", "rulesdir")
 	certdir = config.get("certificates", "basedir")
+	
+	threadCount = config.getint("http", "threads")
 	
 	#get all platform dirs, make sure "default" is among them
 	certdirFiles = glob.glob(os.path.join(certdir, "*"))
@@ -105,11 +182,20 @@ if __name__ == "__main__":
 	#fetches pages with unrewritten URLs
 	fetcherPlain = http_client.HTTPFetcher("default", platforms, fetchOptions)
 	
+	taskQueue = Queue.Queue(1000)
+	startTime = time.time()
+	testedUrlPairCount = 0
+	
+	for i in range(threadCount):
+		t = UrlComparisonThread(taskQueue, metric, thresholdDistance)
+		t.setDaemon(True)
+		t.start()
+	
 	for plainUrl in mainPages:
 		try:
+			ruleFname = None
 			ruleMatch = trie.transformUrl(plainUrl)
 			transformedUrl = ruleMatch.url
-			ruleFname = None
 			
 			if plainUrl == transformedUrl:
 				logging.info("Identical URL: %s", plainUrl)
@@ -122,39 +208,16 @@ if __name__ == "__main__":
 				logging.warn("Unknown platform '%s', using 'default' instead. Rulefile: %s.",
 					ruleMatch.ruleset.platform, ruleFname)
 				fetcher = fetcherMap["default"]
+				
 		except:
-			logging.exception("Failed to transform plain URL %s", plainUrl)
+			logging.exception("Failed to transform plain URL %s. Rulefile: %s.",
+				plainUrl, ruleFname)
 			continue
 		
-		try:
-			logging.debug("=**= Start %s => %s ****", plainUrl, transformedUrl)
-			logging.debug("Fetching plain page %s", plainUrl)
-			plainRcode, plainPage = fetcherPlain.fetchHtml(plainUrl)
-			logging.debug("Fetching transformed page %s", transformedUrl)
-			transformedRcode, transformedPage = fetcher.fetchHtml(transformedUrl)
-			
-			#Compare HTTP return codes - if original page returned 2xx,
-			#but the transformed didn't, consider it an error in ruleset
-			#(note this is not symmetric, we don't care if orig page is broken).
-			#We don't handle 1xx codes for now.
-			if plainRcode//100 == 2 and transformedRcode//100 != 2:
-				logging.error("Non-2xx HTTP code: %s (%d) => %s (%d). Rulefile: %s",
-					plainUrl, plainRcode, transformedUrl, transformedRcode,
-					ruleFname)
-				continue
-			
-			distance = metric.distanceNormed(plainPage, transformedPage)
-			
-			logging.debug("==== D: %0.4f; %s (%d) -> %s (%d) =====",
-				distance,plainUrl, len(plainPage), transformedUrl, len(transformedPage))
-			
-			if distance >= thresholdDistance:
-				logging.info("Big distance %0.4f: %s (%d) -> %s (%d). Rulefile: %s =====",
-					distance, plainUrl, len(plainPage), transformedUrl, len(transformedPage), ruleFname)
-		except KeyboardInterrupt:
-			raise
-		except Exception, e:
-			logging.exception("Failed to process %s: %s. Rulefile: %s",
-				plainUrl, e, ruleFname)
+		testedUrlPairCount += 1
+		task = ComparisonTask(plainUrl, transformedUrl, fetcherPlain, fetcher, ruleFname)
+		taskQueue.put(task)
 		
-		
+	taskQueue.join()
+	logging.info("Finished in %.2f seconds. Loaded rulesets: %d, URL pairs: %d.",
+		time.time() - startTime, len(xmlFnames), testedUrlPairCount)
