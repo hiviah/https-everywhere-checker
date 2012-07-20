@@ -57,3 +57,11 @@ This is a workaround for ambiguous rewrites in rules such as:
 
 The $101 would actually mean 101-st group, so we assume that only first digit
 after $ denotes the group (which is how it seems to work in javascript).
+
+### May not work under Windows
+
+According to [PyCURL documentation](http://curl.haxx.se/libcurl/c/curl_easy_setopt.html#CURLOPTCAPATH),
+using CAPATH may not work under Windows. I'd guess it's due to openssl's
+`c_rehash` utility that creates symlinks to PEM certificates. Hypothetically
+it could work if the symlinks were replaced by regular files with identical
+names, but haven't tried.
