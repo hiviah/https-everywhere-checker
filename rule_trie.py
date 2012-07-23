@@ -38,8 +38,8 @@ import urlparse
 #
 # Assuming complexity of lookup in dict is O(1), lookup of FQDN consisting
 # of N parts is O(N) if there are no * in the tree. Otherwise in theory
-# it could be O(2^N), but the HTTPS Everywhere rules require * only at the 
-# beginning or end, so we still get O(N).
+# it could be O(2^N), but the HTTPS Everywhere rules require only one *, so we
+# still get O(N).
 
 class RuleTransformError(ValueError):
 	"""Thrown when invalid scheme like file:/// is attempted to be
