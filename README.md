@@ -100,6 +100,11 @@ session ID. Thus the session is "resumed" to the first host's SNI.
 Side observation: When validation is turned off in PyCURL+NSS, it also turns off
 session resume as a side effect (the code is in curl's nss.c).
 
+#### Workaround
+
+Set config to use SSLv3 instead of default TLSv1 (option `ssl_version` under
+`http` section).
+
 #### Normative reference
 
 See last four paragraphs of [RFC 4366, section
@@ -124,3 +129,4 @@ using CAPATH may not work under Windows. I'd guess it's due to openssl's
 `c_rehash` utility that creates symlinks to PEM certificates. Hypothetically
 it could work if the symlinks were replaced by regular files with identical
 names, but haven't tried.
+

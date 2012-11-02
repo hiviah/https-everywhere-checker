@@ -12,6 +12,13 @@ basedir = platform_certs
 # threads - number of threads to use for fetching HTTP(S) data
 # user_agent is optional, by default PyCURL's UA is used
 # curl_verbose - optional boolean parameter to turn on PyCURL debug output
+# ssl_version - SSL/TLS version to use, options are:
+#   - when not set, use the default version of linked SSL/TLS library
+#   - TLSv1 - TLSv1 (may be 1.0 or 1.1, e.g. current gnutls defaults to latter)
+#   - SSLv3 - use SSL 3, this is also workaround for the SNI HTTP 400 described
+#     in README
+#   - SSLv2 - use SSL 2 (generally not recommended except for testing special
+#     cases)
 [http]
 connect_timeout = 10
 read_timeout = 15
@@ -19,6 +26,7 @@ redirect_depth = 10
 threads = 10
 #user_agent = Mozilla/5.0 (X11; Linux x86_64; rv:14.0) Gecko/20100101 Firefox/14.0.1
 #curl_verbose = true
+#ssl_version = TLSv1
 
 #Logging
 # logfile - filename or use - for stderr

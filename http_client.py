@@ -44,10 +44,18 @@ class FetchOptions(object):
 		self.redirectDepth = config.getint("http", "redirect_depth")
 		self.userAgent = None
 		self.curlVerbose = False
+		self.sslVersion = pycurl.SSLVERSION_DEFAULT
+
 		if config.has_option("http", "user_agent"):
 			self.userAgent = config.get("http", "user_agent")
 		if config.has_option("http", "curl_verbose"):
 			self.curlVerbose = config.getboolean("http", "curl_verbose")
+		if config.has_option("http", "ssl_version"):
+			versionStr = config.get("http", "ssl_version")
+			try:
+				self.sslVersion = getattr(pycurl, 'SSLVERSION_' + versionStr)
+			except AttributeError:
+				raise ValueError("SSL version '%s' specified in config is unsupported." % versionStr)
 	
 class HTTPFetcherError(RuntimeError):
 	pass
@@ -157,6 +165,7 @@ class HTTPFetcher(object):
 				c.setopt(c.CAPATH, newUrlPlatformPath)
 				if self.options.userAgent:
 					c.setopt(c.USERAGENT, self.options.userAgent)
+				c.setopt(c.SSLVERSION, self.options.sslVersion)
 				c.setopt(c.VERBOSE, self.options.curlVerbose)
 				c.perform()
 			
