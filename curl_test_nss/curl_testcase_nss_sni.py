@@ -16,12 +16,15 @@ def curlRequest(url):
     c.setopt(c.CONNECTTIMEOUT, 5)
     c.setopt(c.TIMEOUT, 8)
     c.setopt(c.CAPATH, "cacert/")
+    # Even though the bug is caused by SSL session IDs and session resume, the
+    # following option doesn't help, it's somehow "ignored"
+    #c.setopt(c.SSL_SESSIONID_CACHE, 0)
     # Turning off certchain validation turns off SSL session IDs and the HTTP
     # 400 thus vanishes:
     #c.setopt(c.SSL_VERIFYPEER, 0)
     #c.setopt(c.SSL_VERIFYHOST, 0)
     # Also using SSLv3 instead of TLSv1 is a "workaround" for the HTTP 400:
-    c.setopt(c.SSLVERSION, c.SSLVERSION_SSLv3)
+    #c.setopt(c.SSLVERSION, c.SSLVERSION_SSLv3)
     c.perform()
 
     bufData = buf.getvalue()
