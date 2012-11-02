@@ -67,28 +67,46 @@ useful information.
 
 ## Known bugs
 
-### CURL/NSS weird interaction in certificate verification
+### CURL+NSS can't handle hosts with SNI sharing same IP address
 
-PyCURL has some weird interaction with HTTPS and Varnish/proxy_html module that
-causes some HTTP 400 responses. Response is OK for the first request to the
-cache, the second one returns HTTP 400. Here are sample URLs that show the
-behavior:
+PyCURL and NSS incorrectly handle the case when two FQDNs have identical IP
+address, use Server Name Indication and try to resume TLS session with the
+same session ID. Even turning off SSL session cache via setting
+`pycurl.SSL_SESSIONID_CACHE` to zero won't help (it's ignored by libcurl/pycurl
+for some reason). PyCURL+NSS fail to see that server didn't acknowledge SNI in
+response (see RFC 4366 reference below), thus 'Host' header in HTTP and SNI seen
+by server are different, thus HTTP 404. 
+
+This one issue was especially insidious bug, many thanks to Pavel Janík for
+helping hunt this bug down.
+
+#### Testcase - example hosts
+
+Connect to first URL, close connection, then GET second URL:
 
 `https://wiki.vorratsdatenspeicherung.de/`  
 `https://www.vorratsdatenspeicherung.de/`
 
-If you fetch the two URLs above in any order, the first URL fetched will return
-HTTP 200, the second will return HTTP 400.
+#### Technical details
 
-For some obscure reason, setting `c.setopt(c.SSL_VERIFYPEER, 0)` makes it work
-correctly (c is a pycurl.Curl() object). However, that turns off certchain
-validation and is thus not of much use. In both cases the HTTP headers seem
-identical, SNI is sent in both cases, ciphersuite is identical.
+PyCURL sends TLS handshake with SNI for the first host. This works. Connection
+is then closed, but PyCURL+NSS remembers the SSL session ID. It will attempt to
+use the same session ID when later connecting to second host on the same IP.
 
-I tried to build curl/libcurl with `--without-nss` and the problem goes away.
-Apparently NSS does not like how CA certs are setup, but I can't find the right
-way to do it. NSS takes `$SSL_DIR` containing its own database of certs (seems
-that it can't be changed at runtime).
+However, the server won't acknowledge what client requested with new SNI,
+because client attempts to resume during TLS handshake using the incorrect
+session ID. Thus the session is "resumed" to the first host's SNI.
+
+Side observation: When validation is turned off in PyCURL+NSS, it also turns off
+session resume as a side effect (the code is in curl's nss.c).
+
+#### Normative reference
+
+See last four paragraphs of [RFC 4366, section
+3.1](https://tools.ietf.org/html/rfc4366#section-3.1). Contrast with [RFC 6066
+section 3](https://tools.ietf.org/html/rfc6066#section-3), last two paragraphs.
+In TLS 1.2 the logic is reversed - server must not resume such connection and
+must go through full handshake again.
 
 ### At most 9 capture groups in rule supported
 
