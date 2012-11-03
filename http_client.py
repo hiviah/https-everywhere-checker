@@ -148,10 +148,10 @@ class HTTPFetcher(object):
 		#handle 301/302 redirects while also rewriting them with HTE rules
 		#limit redirect depth
 		for depth in range(self.options.redirectDepth):
-			buf = cStringIO.StringIO()
-			headerBuf = cStringIO.StringIO()
-			
 			try:
+				buf = cStringIO.StringIO()
+				headerBuf = cStringIO.StringIO()
+				
 				c = pycurl.Curl()
 				newUrl = self.idnEncodedUrl(newUrl)
 				seenUrls.add(newUrl)
@@ -168,51 +168,53 @@ class HTTPFetcher(object):
 				c.setopt(c.SSLVERSION, self.options.sslVersion)
 				c.setopt(c.VERBOSE, self.options.curlVerbose)
 				c.perform()
-			
-				#shitty HTTP header parsing
+				
+				bufValue = buf.getvalue()
 				headerStr = headerBuf.getvalue()
 				httpCode = c.getinfo(pycurl.HTTP_CODE)
-				if httpCode == 0:
-					raise HTTPFetcherError("Pycurl fetch failed for '%s'" % newUrl)
-				elif httpCode in (301, 302):
-					#'Location' should be present only once, so the dict won't hurt
-					headers = dict(self._headerRe.findall(headerStr))
-					location = headers.get('Location')
-					if not location:
-						raise HTTPFetcherError("Redirect for '%s' missing Location" % newUrl)
-					
-					location = self.absolutizeUrl(newUrl, location)
-					logging.debug("Following redirect %s => %s", newUrl, location)
-					
-					if self.ruleTrie:
-						ruleMatch = self.ruleTrie.transformUrl(location)
-						newUrl = ruleMatch.url
-						
-						#Platform for cert validation might have changed.
-						#Record CA path for the platform or reset if not known.
-						#Not really sure fallback to first CA platform is always
-						#correct, but it's expected that the platforms would be
-						#same as the originating site.
-						if ruleMatch.ruleset:
-							newUrlPlatformPath = self.certPlatforms.getCAPath(ruleMatch.ruleset.platform)
-						else:
-							newUrlPlatformPath = self.platformPath
-							
-						if newUrl != location:
-							logging.debug("Redirect rewritten: %s => %s", location, newUrl)
-					else:
-						newUrl = location
-				
-					if newUrl in seenUrls:
-						raise HTTPFetcherError("Cycle detected - URL already encountered: %s" % newUrl)
-					
-					continue #fetch redirected location
-					
-				return (httpCode, buf.getvalue())
 			finally:
 				buf.close()
 				headerBuf.close()
 				c.close()
+			
+			#shitty HTTP header parsing
+			if httpCode == 0:
+				raise HTTPFetcherError("Pycurl fetch failed for '%s'" % newUrl)
+			elif httpCode in (301, 302):
+				#'Location' should be present only once, so the dict won't hurt
+				headers = dict(self._headerRe.findall(headerStr))
+				location = headers.get('Location')
+				if not location:
+					raise HTTPFetcherError("Redirect for '%s' missing Location" % newUrl)
+				
+				location = self.absolutizeUrl(newUrl, location)
+				logging.debug("Following redirect %s => %s", newUrl, location)
+				
+				if self.ruleTrie:
+					ruleMatch = self.ruleTrie.transformUrl(location)
+					newUrl = ruleMatch.url
+					
+					#Platform for cert validation might have changed.
+					#Record CA path for the platform or reset if not known.
+					#Not really sure fallback to first CA platform is always
+					#correct, but it's expected that the platforms would be
+					#same as the originating site.
+					if ruleMatch.ruleset:
+						newUrlPlatformPath = self.certPlatforms.getCAPath(ruleMatch.ruleset.platform)
+					else:
+						newUrlPlatformPath = self.platformPath
+						
+					if newUrl != location:
+						logging.debug("Redirect rewritten: %s => %s", location, newUrl)
+				else:
+					newUrl = location
+			
+				if newUrl in seenUrls:
+					raise HTTPFetcherError("Cycle detected - URL already encountered: %s" % newUrl)
+				
+				continue #fetch redirected location
+				
+			return (httpCode, bufValue)
 			
 		raise HTTPFetcherError("Too many redirects while fetching '%s'" % url)
 
