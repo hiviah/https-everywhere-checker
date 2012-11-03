@@ -130,3 +130,31 @@ using CAPATH may not work under Windows. I'd guess it's due to openssl's
 it could work if the symlinks were replaced by regular files with identical
 names, but haven't tried.
 
+## Transvalid certificates (transitive closure of root and intermediate certs)
+
+The `platform_certs/firefox_transvalid/` attempts to simulate common browser
+behavior of caching intermediate certs. The directory contains FF's builtin
+certs and all intermediate certs that validate from FF's builtin certs (a
+transitive closure).
+
+The certs in above dir are in a tarball (need to be unpacked and c_rehash'd for
+use).
+
+The script is in `certs_transitive_closure/build_closure.sh` and is rather
+crude, definitely needs some double-checking of sanity (see comments inside the
+script).
+
+Quick outline of the script's algorithm:
+
+1. IntermediateSet\_0 := {trusted builtin certs from clean install of Firefox}
+2. Certs that have basic constraints CA=true or are X509 version 1 are exported
+   from some DB like SSL Observatory
+3. Iterate over all exported certs, add new unique certificates not yet
+   contained in IntermediateSet\_n validate against latest IntermediateSet\_n,
+   forming IntermediateSet\_{n+1}
+4. n += 1
+5. If any certs were added in step 3, goto 3, else end
+
+Last IntermediateSet is the closure. 
+
+
