@@ -132,13 +132,12 @@ names, but haven't tried.
 
 ## Transvalid certificates (transitive closure of root and intermediate certs)
 
-The `platform_certs/firefox_transvalid/` attempts to simulate common browser
+The `platform_certs/FF_transvalid.tar.bz2` attempts to simulate common browser
 behavior of caching intermediate certs. The directory contains FF's builtin
 certs and all intermediate certs that validate from FF's builtin certs (a
 transitive closure).
 
-The certs in above dir are in a tarball (need to be unpacked and c_rehash'd for
-use).
+The certs above are in a tarball (need to be unpacked and c_rehash'd for use).
 
 The script is in `certs_transitive_closure/build_closure.sh` and is rather
 crude, definitely needs some double-checking of sanity (see comments inside the
