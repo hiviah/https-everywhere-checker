@@ -1,9 +1,11 @@
+import sys
 import logging
 import pycurl
 import urlparse
 import cStringIO
 import regex
 import cPickle
+import traceback
 
 class CertificatePlatforms(object):
 	"""Maps platform names from rulesets to CA certificate sets"""
@@ -73,20 +75,31 @@ class FetcherInArgs(object):
 		self.options = options
 		self.platformPath = platformPath
 	
+	def check(self):
+		"""Throw HTTPFetcherError unless attributes are set and sane."""
+		if not isinstance(self.url, str) or not self.url:
+			raise HTTPFetcherError("URL missing or bad type")
+		if not isinstance(self.options, FetchOptions):
+			raise HTTPFetcherError("Options have bad type")
+		if not isinstance(self.platformPath, str) or not self.platformPath:
+			raise HTTPFetcherError("Platform path missing or bad type")
+	
 class FetcherOutArgs(object):
 	"""Container for data returned from fetcher. Picklable object to use
 	with subprocess PyCURL invocation.
 	"""
 	
-	def __init__(self, httpCode, data, headerStr):
+	def __init__(self, httpCode=None, data=None, headerStr=None, errorStr=None):
 		"""
 		@param httpCode: return HTTP code as int
 		@param data: data fetched from URL as str
 		@param headerStr: HTTP headers as str
+		@param errorStr: formatted backtrace from exception as str
 		"""
 		self.httpCode = httpCode
 		self.data = data
 		self.headerStr = headerStr
+		self.errorStr = errorStr
 	
 class HTTPFetcherError(RuntimeError):
 	pass
@@ -158,7 +171,7 @@ class HTTPFetcher(object):
 		return newUrl
 		
 	@staticmethod
-	def _doFetch(url, options, platformPath):
+	def staticFetch(url, options, platformPath):
 		"""Construct a PyCURL object and fetch given URL.
 		
 		@param url: IDNA-encoded URL
@@ -226,7 +239,7 @@ class HTTPFetcher(object):
 			newUrl = self.idnEncodedUrl(newUrl)
 			seenUrls.add(newUrl)
 			
-			fetched = HTTPFetcher._doFetch(newUrl, options, newUrlPlatformPath)
+			fetched = HTTPFetcher.staticFetch(newUrl, options, newUrlPlatformPath)
 			
 			httpCode = fetched.httpCode
 			bufValue = fetched.data
@@ -273,3 +286,26 @@ class HTTPFetcher(object):
 			
 		raise HTTPFetcherError("Too many redirects while fetching '%s'" % url)
 
+
+# When invoked as main program, read cPickled FetcherInArgs from stdin and
+# write FetcherOutArgs to stdout. Implementation of the subprocess URL fetch.
+if __name__ == "__main__":
+	outArgs = None
+	
+	try:
+		inArgs = cPickle.load(sys.stdin)
+		inArgs.check()
+		outArgs = HTTPFetcher.staticFetch(inArgs.url, inArgs.options, inArgs.platformPath)
+	except:
+		errorStr = traceback.format_exc()
+		outArgs = FetcherOutArgs(errorStr=errorStr)
+
+	if outArgs is None:
+		errorStr = traceback.format_exception_only(HTTPFetcherError,
+			HTTPFetcherError("Subprocess logic error - no output args"))
+		outArgs = FetcherOutArgs(errorStr=errorStr)
+	
+	try:
+		cPickle.dump(outArgs, sys.stdout)
+	except:
+		cPickle.dump(None, sys.stdout) #catch-all case

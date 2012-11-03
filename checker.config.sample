@@ -19,6 +19,9 @@ basedir = platform_certs
 #     in README
 #   - SSLv2 - use SSL 2 (generally not recommended except for testing special
 #     cases)
+# fetch_in_subprocess - spawn subprocess to fetch HTTP(S) URLs. Intended as
+#   workaround for threading race conditions when underlying SSL library is
+#   gnutls or openssl. Default is false.
 [http]
 connect_timeout = 10
 read_timeout = 15
@@ -27,6 +30,7 @@ threads = 10
 #user_agent = Mozilla/5.0 (X11; Linux x86_64; rv:14.0) Gecko/20100101 Firefox/14.0.1
 #curl_verbose = true
 #ssl_version = TLSv1
+#fetch_in_subprocess = false
 
 #Logging
 # logfile - filename or use - for stderr
