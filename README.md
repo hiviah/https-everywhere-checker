@@ -147,6 +147,16 @@ If underlying SSL library is NSS, threading looks fine.
 As a side effect, the CURL+NSS SNI bug does not happen with subprocesses (SSL
 session ID cache is not kept among process invocations).
 
+### Generic bugs/quirks of SSL libraries
+
+Each of the three possible libraries (OpenSSL, GnuTLS, NSS) has different set of
+quirks. GnuTLS seems to be the most strict one regarding relevant RFCs and will
+not for instance tolerate certificate chain in wrong order or forgive server not
+sending `close_notify` alert.
+
+Thus it's entirely possible that while a server chain and SSL/TLS handshake
+seems OK when using one lib, it may break with the other.
+
 ## Transvalid certificates (transitive closure of root and intermediate certs)
 
 The `platform_certs/FF_transvalid.tar.bz2` attempts to simulate common browser
