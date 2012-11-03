@@ -58,6 +58,36 @@ class FetchOptions(object):
 			except AttributeError:
 				raise ValueError("SSL version '%s' specified in config is unsupported." % versionStr)
 	
+class FetcherInArgs(object):
+	"""Container for parameters necessary to be passed to CURL fetcher when
+	invoked in subprocess to workaround openssl/gnutls+curl threading bugs.
+	"""
+	
+	def __init__(self, url, options, platformPath):
+		"""
+		@param url: IDNA-encoded URL
+		@param options: FetchOptions instance
+		@param platformPath: directory with platform certificates
+		"""
+		self.url = url
+		self.options = options
+		self.platformPath = platformPath
+	
+class FetcherOutArgs(object):
+	"""Container for data returned from fetcher. Picklable object to use
+	with subprocess PyCURL invocation.
+	"""
+	
+	def __init__(self, httpCode, data, headerStr):
+		"""
+		@param httpCode: return HTTP code as int
+		@param data: data fetched from URL as str
+		@param headerStr: HTTP headers as str
+		"""
+		self.httpCode = httpCode
+		self.data = data
+		self.headerStr = headerStr
+	
 class HTTPFetcherError(RuntimeError):
 	pass
 
@@ -127,6 +157,48 @@ class HTTPFetcher(object):
 		
 		return newUrl
 		
+	@staticmethod
+	def _doFetch(url, options, platformPath):
+		"""Construct a PyCURL object and fetch given URL.
+		
+		@param url: IDNA-encoded URL
+		@param options: FetchOptions instance
+		@param platformPath: directory with platform certificates
+		@returns: FetcherOutArgs instance with fetched URL data
+		
+		@throws: anything PyCURL can throw (SSL error, timeout, etc.)
+		"""
+		try:
+			buf = cStringIO.StringIO()
+			headerBuf = cStringIO.StringIO()
+			
+			c = pycurl.Curl()
+			c.setopt(c.URL, url)
+			c.setopt(c.WRITEFUNCTION, buf.write)
+			c.setopt(c.HEADERFUNCTION, headerBuf.write)
+			c.setopt(c.CONNECTTIMEOUT, options.connectTimeout)
+			c.setopt(c.TIMEOUT, options.readTimeout)
+			# Validation should not be disabled except for debugging
+			#c.setopt(c.SSL_VERIFYPEER, 0)
+			#c.setopt(c.SSL_VERIFYHOST, 0)
+			c.setopt(c.CAPATH, platformPath)
+			if options.userAgent:
+				c.setopt(c.USERAGENT, options.userAgent)
+			c.setopt(c.SSLVERSION, options.sslVersion)
+			c.setopt(c.VERBOSE, options.curlVerbose)
+			c.perform()
+			
+			bufValue = buf.getvalue()
+			headerStr = headerBuf.getvalue()
+			httpCode = c.getinfo(pycurl.HTTP_CODE)
+		finally:
+			buf.close()
+			headerBuf.close()
+			c.close()
+			
+		fetched = FetcherOutArgs(httpCode, bufValue, headerStr)
+		return fetched
+	
 	def fetchHtml(self, url):
 		"""Fetch HTML from given http/https URL. Return codes 301 and
 		302 are followed, URLs rewritten using HTTPS Everywhere rules.
@@ -154,32 +226,11 @@ class HTTPFetcher(object):
 			newUrl = self.idnEncodedUrl(newUrl)
 			seenUrls.add(newUrl)
 			
-			try:
-				buf = cStringIO.StringIO()
-				headerBuf = cStringIO.StringIO()
-				
-				c = pycurl.Curl()
-				c.setopt(c.URL, newUrl)
-				c.setopt(c.WRITEFUNCTION, buf.write)
-				c.setopt(c.HEADERFUNCTION, headerBuf.write)
-				c.setopt(c.CONNECTTIMEOUT, options.connectTimeout)
-				c.setopt(c.TIMEOUT, options.readTimeout)
-				#c.setopt(c.SSL_VERIFYPEER, 0)
-				#c.setopt(c.SSL_VERIFYHOST, 0)
-				c.setopt(c.CAPATH, newUrlPlatformPath)
-				if options.userAgent:
-					c.setopt(c.USERAGENT, options.userAgent)
-				c.setopt(c.SSLVERSION, options.sslVersion)
-				c.setopt(c.VERBOSE, options.curlVerbose)
-				c.perform()
-				
-				bufValue = buf.getvalue()
-				headerStr = headerBuf.getvalue()
-				httpCode = c.getinfo(pycurl.HTTP_CODE)
-			finally:
-				buf.close()
-				headerBuf.close()
-				c.close()
+			fetched = HTTPFetcher._doFetch(newUrl, options, newUrlPlatformPath)
+			
+			httpCode = fetched.httpCode
+			bufValue = fetched.data
+			headerStr = fetched.headerStr
 			
 			#shitty HTTP header parsing
 			if httpCode == 0:
