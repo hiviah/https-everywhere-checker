@@ -1,3 +1,4 @@
+import os
 import sys
 import logging
 import pycurl
@@ -6,6 +7,7 @@ import cStringIO
 import regex
 import cPickle
 import traceback
+import subprocess
 
 class CertificatePlatforms(object):
 	"""Maps platform names from rulesets to CA certificate sets"""
@@ -48,11 +50,14 @@ class FetchOptions(object):
 		self.userAgent = None
 		self.curlVerbose = False
 		self.sslVersion = pycurl.SSLVERSION_DEFAULT
+		self.useSubprocess = False
 
 		if config.has_option("http", "user_agent"):
 			self.userAgent = config.get("http", "user_agent")
 		if config.has_option("http", "curl_verbose"):
 			self.curlVerbose = config.getboolean("http", "curl_verbose")
+		if config.has_option("http", "fetch_in_subprocess"):
+			self.useSubprocess = config.getboolean("http", "fetch_in_subprocess")
 		if config.has_option("http", "ssl_version"):
 			versionStr = config.get("http", "ssl_version")
 			try:
@@ -171,6 +176,60 @@ class HTTPFetcher(object):
 		return newUrl
 		
 	@staticmethod
+	def _doFetch(url, options, platformPath):
+		"""
+		Fetch data from URL. If options.useSubprocess is True, spawn
+		subprocess for fetching.
+		
+		@see HTTPFetcher.staticFetch() for parameter description
+		
+		@throws: anything staticFetch() throws
+		@throws: HTTPFetcherError in case of problem in subprocess invocation
+		@throws: cPickle.UnpicklingError when we get garbage from subprocess
+		"""
+		if not options.useSubprocess:
+			return HTTPFetcher.staticFetch(url, options, platformPath)
+		
+		inArgs = FetcherInArgs(url, options, platformPath)
+		
+		# Workaround for cPickle seeing module name as __main__ if we
+		# just directly executed this script.
+		# TODO: check PYTHONPATH etc if not in the same dir as script
+		trampoline = 'import http_client; http_client.subprocessFetch()'
+		
+		# Spawn subprocess, call this module as "main" program. I tried
+		# also using python's multiprocessing module, but for some
+		# reason it was a hog on CPU and RAM (maybe due to the queues?)
+		# Also, logging module didn't play along nicely.
+		args = [sys.executable, '-c', trampoline]
+		#logging.debug("Spawning subprocess with args %s", args)
+		p = subprocess.Popen(args, stdin=subprocess.PIPE,
+			stdout=subprocess.PIPE,	stderr=subprocess.PIPE)
+		
+		# Hopefully we shouldn't deadlock here: first all data is written
+		# to subprocess's stdin, it will unpickle them first. Then we
+		# wait for resulting pickled data from stdout. In case of trouble,
+		# try using big bufsize or bufsize=-1 in Popen invocation.
+		#
+		# Doc page for subprocess says "don't use communicate() with big
+		# or unlimited data", but doesn't say what is the alternative
+		(outData, errData) = p.communicate(cPickle.dumps(inArgs))
+		exitCode = p.wait()
+		
+		if exitCode != 0:
+			raise HTTPFetcherError("Subprocess failed with exit code %d" % exitCode)
+			
+		#logging.debug("Subprocess finished OK")
+		unpickled = cPickle.loads(outData)
+		if not isinstance(unpickled, FetcherOutArgs):
+			raise HTTPFetcherError("Unexpected datatype received from subprocess: %s" % \
+				type(unpickled))
+		if unpickled.errorStr: #chained exception tracebacks are bit ugly/long
+			raise HTTPFetcherError("Fetcher subprocess error: %s" % unpickled.errorStr)
+			
+		return unpickled
+		
+	@staticmethod
 	def staticFetch(url, options, platformPath):
 		"""Construct a PyCURL object and fetch given URL.
 		
@@ -239,7 +298,7 @@ class HTTPFetcher(object):
 			newUrl = self.idnEncodedUrl(newUrl)
 			seenUrls.add(newUrl)
 			
-			fetched = HTTPFetcher.staticFetch(newUrl, options, newUrlPlatformPath)
+			fetched = HTTPFetcher._doFetch(newUrl, options, newUrlPlatformPath)
 			
 			httpCode = fetched.httpCode
 			bufValue = fetched.data
@@ -287,9 +346,12 @@ class HTTPFetcher(object):
 		raise HTTPFetcherError("Too many redirects while fetching '%s'" % url)
 
 
-# When invoked as main program, read cPickled FetcherInArgs from stdin and
-# write FetcherOutArgs to stdout. Implementation of the subprocess URL fetch.
-if __name__ == "__main__":
+def subprocessFetch():
+	"""
+	Used for invocation in fetcher subprocess. Reads cPickled FetcherInArgs
+	from stdin and write FetcherOutArgs to stdout. Implementation of the
+	subprocess URL fetch.
+	"""
 	outArgs = None
 	
 	try:
