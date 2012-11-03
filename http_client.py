@@ -51,6 +51,7 @@ class FetchOptions(object):
 		self.curlVerbose = False
 		self.sslVersion = pycurl.SSLVERSION_DEFAULT
 		self.useSubprocess = False
+		self.staticCAPath = None
 
 		if config.has_option("http", "user_agent"):
 			self.userAgent = config.get("http", "user_agent")
@@ -64,6 +65,8 @@ class FetchOptions(object):
 				self.sslVersion = getattr(pycurl, 'SSLVERSION_' + versionStr)
 			except AttributeError:
 				raise ValueError("SSL version '%s' specified in config is unsupported." % versionStr)
+		if config.has_option("http", "static_ca_path"):
+			self.staticCAPath = config.get("http", "static_ca_path")
 	
 class FetcherInArgs(object):
 	"""Container for parameters necessary to be passed to CURL fetcher when
@@ -299,6 +302,10 @@ class HTTPFetcher(object):
 			newUrl = self.idnEncodedUrl(newUrl)
 			seenUrls.add(newUrl)
 			
+			#override platform path detected from ruleset files
+			if options.staticCAPath:
+				newUrlPlatformPath = options.staticCAPath
+				
 			fetched = HTTPFetcher._doFetch(newUrl, options, newUrlPlatformPath)
 			
 			httpCode = fetched.httpCode
