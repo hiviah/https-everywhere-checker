@@ -50,7 +50,7 @@ class FetchOptions(object):
 		self.userAgent = None
 		self.curlVerbose = False
 		self.sslVersion = pycurl.SSLVERSION_DEFAULT
-		self.useSubprocess = False
+		self.useSubprocess = True
 		self.staticCAPath = None
 
 		if config.has_option("http", "user_agent"):

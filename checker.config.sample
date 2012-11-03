@@ -21,7 +21,8 @@ basedir = platform_certs
 #     cases)
 # fetch_in_subprocess - spawn subprocess to fetch HTTP(S) URLs. Intended as
 #   workaround for threading race conditions when underlying SSL library is
-#   gnutls or openssl. Default is false.
+#   gnutls or openssl. Default is true as process-level separation seems to
+#   serve as workaround for all kinds of bugs.
 # static_capath - use to disable setting CA cert path based on what rule
 #   'platform' attribute says and use a fixed CA path instead. Should point to
 #   a directory with CA certificates/intermediate certificates.
@@ -33,7 +34,7 @@ threads = 10
 #user_agent = Mozilla/5.0 (X11; Linux x86_64; rv:14.0) Gecko/20100101 Firefox/14.0.1
 #curl_verbose = true
 #ssl_version = TLSv1
-#fetch_in_subprocess = false
+fetch_in_subprocess = true
 #static_ca_path = platform_certs/firefox_transvalid
 
 #Logging

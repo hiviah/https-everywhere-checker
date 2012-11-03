@@ -147,6 +147,11 @@ If underlying SSL library is NSS, threading looks fine.
 As a side effect, the CURL+NSS SNI bug does not happen with subprocesses (SSL
 session ID cache is not kept among process invocations).
 
+If pure-threaded version starts eating too much memory (like 1 GB in a minute),
+turn on the `fetch_in_subprocess` option metioned above. Some combinations of
+CURL and SSL library versions do that. Spawning separate subprocesses prevents
+any caches building up and eating too much memory.
+
 ### Generic bugs/quirks of SSL libraries
 
 Each of the three possible libraries (OpenSSL, GnuTLS, NSS) has different set of
