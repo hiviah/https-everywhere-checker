@@ -130,6 +130,20 @@ using CAPATH may not work under Windows. I'd guess it's due to openssl's
 it could work if the symlinks were replaced by regular files with identical
 names, but haven't tried.
 
+### Threading bugs and workarounds
+
+There are some race conditions with Python threads and OpenSSL/GnuTLS that cause
+about due to SIGPIPE or SIGSEGV. While libcurl code seems to have implemented
+the necessary callbacks, there's a bug somewhere :-)
+
+Workaround: set `fetch_in_subprocess` under `http` section in config to true
+when using multiple threads for fetching.
+
+You might have to set PYTHONPATH if working dir is different from code dir with
+python scripts.
+
+If underlying SSL library is NSS, threading looks fine.
+
 ## Transvalid certificates (transitive closure of root and intermediate certs)
 
 The `platform_certs/FF_transvalid.tar.bz2` attempts to simulate common browser

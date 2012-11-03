@@ -195,6 +195,7 @@ class HTTPFetcher(object):
 		# Workaround for cPickle seeing module name as __main__ if we
 		# just directly executed this script.
 		# TODO: check PYTHONPATH etc if not in the same dir as script
+		# TODO: we should set the main process to be session leader
 		trampoline = 'import http_client; http_client.subprocessFetch()'
 		
 		# Spawn subprocess, call this module as "main" program. I tried
