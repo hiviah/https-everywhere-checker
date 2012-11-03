@@ -3,6 +3,7 @@ import pycurl
 import urlparse
 import cStringIO
 import regex
+import cPickle
 
 class CertificatePlatforms(object):
 	"""Maps platform names from rulesets to CA certificate sets"""
@@ -144,29 +145,32 @@ class HTTPFetcher(object):
 		
 		#set of URLs seen in redirects for cycle detection
 		seenUrls = set()
-	
+		
+		options = self.options
+		
 		#handle 301/302 redirects while also rewriting them with HTE rules
 		#limit redirect depth
-		for depth in range(self.options.redirectDepth):
+		for depth in range(options.redirectDepth):
+			newUrl = self.idnEncodedUrl(newUrl)
+			seenUrls.add(newUrl)
+			
 			try:
 				buf = cStringIO.StringIO()
 				headerBuf = cStringIO.StringIO()
 				
 				c = pycurl.Curl()
-				newUrl = self.idnEncodedUrl(newUrl)
-				seenUrls.add(newUrl)
 				c.setopt(c.URL, newUrl)
 				c.setopt(c.WRITEFUNCTION, buf.write)
 				c.setopt(c.HEADERFUNCTION, headerBuf.write)
-				c.setopt(c.CONNECTTIMEOUT, self.options.connectTimeout)
-				c.setopt(c.TIMEOUT, self.options.readTimeout)
+				c.setopt(c.CONNECTTIMEOUT, options.connectTimeout)
+				c.setopt(c.TIMEOUT, options.readTimeout)
 				#c.setopt(c.SSL_VERIFYPEER, 0)
 				#c.setopt(c.SSL_VERIFYHOST, 0)
 				c.setopt(c.CAPATH, newUrlPlatformPath)
-				if self.options.userAgent:
-					c.setopt(c.USERAGENT, self.options.userAgent)
-				c.setopt(c.SSLVERSION, self.options.sslVersion)
-				c.setopt(c.VERBOSE, self.options.curlVerbose)
+				if options.userAgent:
+					c.setopt(c.USERAGENT, options.userAgent)
+				c.setopt(c.SSLVERSION, options.sslVersion)
+				c.setopt(c.VERBOSE, options.curlVerbose)
 				c.perform()
 				
 				bufValue = buf.getvalue()
