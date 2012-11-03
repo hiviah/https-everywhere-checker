@@ -144,6 +144,9 @@ python scripts.
 
 If underlying SSL library is NSS, threading looks fine.
 
+As a side effect, the CURL+NSS SNI bug does not happen with subprocesses (SSL
+session ID cache is not kept among process invocations).
+
 ## Transvalid certificates (transitive closure of root and intermediate certs)
 
 The `platform_certs/FF_transvalid.tar.bz2` attempts to simulate common browser
