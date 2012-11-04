@@ -47,6 +47,8 @@ useful information.
  * Multi-threaded scanner
  * Support for various "platforms" (e.g. CAcert), i.e. sets of CA certificate
    sets which can be switched during following of redirects
+   - set of used CA certificates can be statically restricted to one CA
+     certificate set (see `static_ca_path` in config file)
 
 ## What errors in rulesets can be detected
 
@@ -80,12 +82,9 @@ by server are different, thus HTTP 404.
 This one issue was especially insidious bug, many thanks to Pavel Janík for
 helping hunt this bug down.
 
-#### Testcase - example hosts
+#### Testcase
 
-Connect to first URL, close connection, then GET second URL:
-
-`https://wiki.vorratsdatenspeicherung.de/`  
-`https://www.vorratsdatenspeicherung.de/`
+See `curl_test_nss/curl_testcase_nss_sni.py` script that demonstrates the bug.
 
 #### Technical details
 
@@ -137,7 +136,7 @@ about due to SIGPIPE or SIGSEGV. While libcurl code seems to have implemented
 the necessary callbacks, there's a bug somewhere :-)
 
 Workaround: set `fetch_in_subprocess` under `http` section in config to true
-when using multiple threads for fetching.
+when using multiple threads for fetching. Using subprocess is on by default.
 
 You might have to set PYTHONPATH if working dir is different from code dir with
 python scripts.
@@ -151,6 +150,13 @@ If pure-threaded version starts eating too much memory (like 1 GB in a minute),
 turn on the `fetch_in_subprocess` option metioned above. Some combinations of
 CURL and SSL library versions do that. Spawning separate subprocesses prevents
 any caches building up and eating too much memory.
+
+Using subprocess hypothetically might cause a deadlock due to insufficient
+buffer size when exchanging data through stdin/stdout in case of a large HTML
+page, but hasn't happened for any of the rules (I've tried to run them on the
+complete batch of rulesets contained in HTTPS Everywhere Nov 2 2012 commit
+c343f230a49d960dba90424799c3bacc2325fc94). Though in case deadlock happens,
+increase buffer size in `subprocess.Popen` invocation in `http_client.py`.
 
 ### Generic bugs/quirks of SSL libraries
 
