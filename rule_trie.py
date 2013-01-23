@@ -52,15 +52,16 @@ class RuleTransformError(ValueError):
 class DomainNode(object):
 	"""Node of suffix trie for searching of applicable rulesets."""
 	
-	def __init__(self, subDomain, rulesets):
+	def __init__(self, subDomain, rulesets, depth):
 		"""Create instance for part of FQDN.
 		@param subDomain: part of FQDN between "dots"
 		@param rulesets: rules.Ruleset list that applies for this node in tree
 		"""
 		self.subDomain = subDomain
 		self.rulesets = rulesets
-		self.children = {}
+		self.children = {} #map of subdomain to instance of DomainNode
 		self.gvNode = None #node for graphing with graphviz
+		self.depth = depth #depth in tree, root is at depth 0
 	
 	def addChild(self, subNode):
 		"""Add DomainNode for more-specific subdomains of this one."""
@@ -75,6 +76,21 @@ class DomainNode(object):
 		#we are the leaf that matched
 		if domain == "":
 			return self.rulesets
+		
+		applicableRules = set()
+		
+		# Wildcard node can expand to any number of subdomains per
+		# HTE rulesets, if it's at least 3-rd level domain.
+		# E.g. *.fbcdn.net target will also cover profile.ak.fbcdn.net
+		#
+		# See:
+		#  https://gitweb.torproject.org/https-everywhere.git/commitdiff/6ca405d010062d2b2cb91b2024d4ebf7d405dee7
+		#  https://www.eff.org/https-everywhere/rulesets (see also footnote)
+		#
+		# Currently there should be no targets with wildcard in the
+		# middle in HTE rules, like bla.*.something.tld
+		if self.depth >= 3 and self.subDomain == "*":
+			applicableRules.update(self.rulesets)
 		
 		#make sure domain is in ASCII - either "plain old domain" or
 		#punycode-encoded IDN domain
@@ -92,8 +108,6 @@ class DomainNode(object):
 		
 		wildcardChild = self.children.get("*")
 		ruleChild = self.children.get(childDomain)
-		
-		applicableRules = set()
 		
 		#we need to consider direct matches as well as wildcard matches so
 		#that match for things like "bla.google.*" work
@@ -169,7 +183,7 @@ class RuleTrie(object):
 	"""Suffix trie for rulesets."""
 	
 	def __init__(self):
-		self.root = DomainNode("", [])
+		self.root = DomainNode("", [], 0)
 	
 	def matchingRulesets(self, fqdn):
 		"""Return rulesets applicable for FQDN. Wildcards not allowed.
@@ -185,14 +199,16 @@ class RuleTrie(object):
 			#enumerate parts so we know when we hit leaf where
 			#rulesets are to be stored
 			parts = list(enumerate(target.split(".")))
+			depth = 0
 			
 			for (idx, part) in reversed(parts):
+				depth += 1
 				partNode = node.children.get(part)
 				
 				#create node if not existing already and stuff
 				#the rulesets in leaf
 				if not partNode:
-					partNode = DomainNode(part, [])
+					partNode = DomainNode(part, [], depth)
 					node.addChild(partNode)
 				if idx == 0:
 					#there should be only one ruleset, but...

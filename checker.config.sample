@@ -26,6 +26,8 @@ basedir = platform_certs
 # static_capath - use to disable setting CA cert path based on what rule
 #   'platform' attribute says and use a fixed CA path instead. Should point to
 #   a directory with CA certificates/intermediate certificates.
+# url_list - file containing http URLs to be tested, one per line. These URLs
+#   will be tested instead of guessing URLs based on "target" element in rulesets.
 [http]
 connect_timeout = 10
 read_timeout = 15
@@ -36,6 +38,7 @@ threads = 10
 #ssl_version = TLSv1
 fetch_in_subprocess = true
 #static_ca_path = platform_certs/firefox_transvalid
+#url_list = urls
 
 #Logging
 # logfile - filename or use - for stderr

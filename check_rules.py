@@ -150,6 +150,11 @@ if __name__ == "__main__":
 	metricClass = getMetricClass(metricName)
 	metric = metricClass()
 	
+	urlList = []
+	if config.has_option("http", "url_list"):
+		with file(config.get("http", "url_list")) as urlFile:
+			urlList = [line.rstrip() for line in urlFile.readlines()]
+			
 	# Debugging options, graphviz dump
 	dumpGraphvizTrie = False
 	if config.has_option("debug", "dump_graphviz_trie"):
@@ -163,19 +168,21 @@ if __name__ == "__main__":
 	trie = RuleTrie()
 	
 	# set of main pages to test
-	mainPages = set()
+	mainPages = set(urlList)
 	
 	for xmlFname in xmlFnames:
 		ruleset = Ruleset(etree.parse(file(xmlFname)).getroot(), xmlFname)
 		if ruleset.defaultOff:
 			logging.debug("Skipping rule '%s', reason: %s", ruleset.name, ruleset.defaultOff)
 			continue
-		for target in ruleset.uniqueTargetFQDNs():
-			targetHTTPLangingPage = "http://%s/" % target
-			if not ruleset.excludes(targetHTTPLangingPage):
-				mainPages.add(targetHTTPLangingPage)
-			else:
-				logging.debug("Skipping landing page %s", targetHTTPLangingPage)
+		#if list of URLs to test/scan was not defined, guess URLs from target elements
+		if not urlList:
+			for target in ruleset.uniqueTargetFQDNs():
+				targetHTTPLangingPage = "http://%s/" % target
+				if not ruleset.excludes(targetHTTPLangingPage):
+					mainPages.add(targetHTTPLangingPage)
+				else:
+					logging.debug("Skipping landing page %s", targetHTTPLangingPage)
 		trie.addRuleset(ruleset)
 	
 	# Trie is built now, dump it if it's set in config
