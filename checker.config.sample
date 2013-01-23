@@ -50,3 +50,14 @@ loglevel = debug
 [thresholds]
 metric = markup
 max_distance = 0.1
+
+#Debugging features
+# dump_graphviz_trie - dump ruleset trie in graphviz dot format, iff set to true.
+#	Default is false.
+# graphviz_file - graphviz output file, use - for stdout
+# exit_after_dump - do not continue with actual fetch/compare, only dump the
+#   trie and exit
+[debug]
+#dump_graphviz_trie = false
+graphviz_file = HTEC_trie.dot
+exit_after_dump = true

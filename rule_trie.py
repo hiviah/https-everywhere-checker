@@ -1,4 +1,6 @@
 import urlparse
+import os.path
+from gvgen import GvGen
 
 ## Rule trie
 #
@@ -58,6 +60,7 @@ class DomainNode(object):
 		self.subDomain = subDomain
 		self.rulesets = rulesets
 		self.children = {}
+		self.gvNode = None #node for graphing with graphviz
 	
 	def addChild(self, subNode):
 		"""Add DomainNode for more-specific subdomains of this one."""
@@ -107,6 +110,39 @@ class DomainNode(object):
 		print unicode(self)
 		for child in self.children.values():
 			child.prettyPrint(offset+3)
+	
+	def makeSubdomainEdge(self, graph, parent, child):
+		"""Make edge in graph of parent domain to child subdomain.
+		GvGen nodes are created if not yet existing.
+		
+		@param graph: gvgen.GvGen object
+		@param parent: parent DomainNode
+		@param child: child DomainNode
+		"""
+		if not child.gvNode:
+			child.gvNode = graph.newItem(child.subDomain)
+			graph.propertyAppend(child.gvNode, "shape", "octagon")
+		if not parent.gvNode:
+			# the "or" part so that root has some name
+			parent.gvNode = graph.newItem(parent.subDomain or "<root>")
+			graph.propertyAppend(parent.gvNode, "shape", "octagon")
+			
+		graph.newLink(parent.gvNode, child.gvNode)
+	
+	def generateGraphizGraph(self, graph):
+		"""Return tree as a GvGen object that can be output to dot file.
+		
+		@param graph: gvgen.GvGen object
+		"""
+		for child in self.children.values():
+			self.makeSubdomainEdge(graph, self, child)
+			child.generateGraphizGraph(graph)
+			
+		for ruleset in self.rulesets:
+			rulesetGvNode = graph.newItem(os.path.basename(ruleset.filename))
+			graph.propertyAppend(rulesetGvNode, "shape", "rectangle")
+			graph.propertyAppend(rulesetGvNode, "color", "green")
+			graph.newLink(self.gvNode, rulesetGvNode)
 	
 	def __str__(self):
 		return "<DomainNode for '%s', rulesets: %s>" % (self.subDomain, self.rulesets)
@@ -192,6 +228,15 @@ class RuleTrie(object):
 				return RuleMatch(newUrl, ruleset)
 		return RuleMatch(url, None)
 	
+	def generateGraphizGraph(self):
+		"""Return graphviz graph of this trie.
+		
+		@return: gvgen.GvGen object
+		"""
+		graph = GvGen()
+		self.root.generateGraphizGraph(graph)
+		return graph
+		
 	def prettyPrint(self):
 		self.root.prettyPrint()
 

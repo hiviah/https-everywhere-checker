@@ -150,6 +150,15 @@ if __name__ == "__main__":
 	metricClass = getMetricClass(metricName)
 	metric = metricClass()
 	
+	# Debugging options, graphviz dump
+	dumpGraphvizTrie = False
+	if config.has_option("debug", "dump_graphviz_trie"):
+		dumpGraphvizTrie = config.getboolean("debug", "dump_graphviz_trie")
+	if dumpGraphvizTrie:
+		graphvizFile = config.get("debug", "graphviz_file")
+		exitAfterDump = config.getboolean("debug", "exit_after_dump")
+	
+	
 	xmlFnames = glob.glob(os.path.join(ruledir, "*.xml"))
 	trie = RuleTrie()
 	
@@ -168,6 +177,18 @@ if __name__ == "__main__":
 			else:
 				logging.debug("Skipping landing page %s", targetHTTPLangingPage)
 		trie.addRuleset(ruleset)
+	
+	# Trie is built now, dump it if it's set in config
+	if dumpGraphvizTrie:
+		logging.debug("Dumping graphviz ruleset trie")
+		graph = trie.generateGraphizGraph()
+		if graphvizFile == "-":
+			graph.dot()
+		else:
+			with file(graphvizFile, "w") as gvFd:
+				graph.dot(gvFd)
+		if exitAfterDump:
+			sys.exit(0)
 	
 	fetchOptions = http_client.FetchOptions(config)
 	fetcherMap = dict() #maps platform to fetcher
