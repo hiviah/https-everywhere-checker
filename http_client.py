@@ -97,17 +97,20 @@ class FetcherOutArgs(object):
 	with subprocess PyCURL invocation.
 	"""
 	
-	def __init__(self, httpCode=None, data=None, headerStr=None, errorStr=None):
+	def __init__(self, httpCode=None, data=None, headerStr=None,
+		     errorStr=None, shortError=None):
 		"""
 		@param httpCode: return HTTP code as int
 		@param data: data fetched from URL as str
 		@param headerStr: HTTP headers as str
 		@param errorStr: formatted backtrace from exception as str
+		@param shortError: short one-line error description
 		"""
 		self.httpCode = httpCode
 		self.data = data
 		self.headerStr = headerStr
 		self.errorStr = errorStr
+		self.shortError = shortError
 	
 class HTTPFetcherError(RuntimeError):
 	pass
@@ -229,7 +232,9 @@ class HTTPFetcher(object):
 			raise HTTPFetcherError("Unexpected datatype received from subprocess: %s" % \
 				type(unpickled))
 		if unpickled.errorStr: #chained exception tracebacks are bit ugly/long
-			raise HTTPFetcherError("Fetcher subprocess error: %s" % unpickled.errorStr)
+			assert unpickled.shortError is not None
+			raise HTTPFetcherError("Fetcher subprocess error: %s\n%s" % \
+				(unpickled.shortError, unpickled.errorStr))
 			
 		return unpickled
 		
@@ -366,14 +371,16 @@ def subprocessFetch():
 		inArgs = cPickle.load(sys.stdin)
 		inArgs.check()
 		outArgs = HTTPFetcher.staticFetch(inArgs.url, inArgs.options, inArgs.platformPath)
-	except:
+	except BaseException,e: #this will trap KeyboardInterrupt as well
 		errorStr = traceback.format_exc()
-		outArgs = FetcherOutArgs(errorStr=errorStr)
+		shortError = str(e)
+		outArgs = FetcherOutArgs(errorStr=errorStr, shortError=shortError)
 
 	if outArgs is None:
+		shortError = "Subprocess logic error - no output args"
 		errorStr = traceback.format_exception_only(HTTPFetcherError,
-			HTTPFetcherError("Subprocess logic error - no output args"))
-		outArgs = FetcherOutArgs(errorStr=errorStr)
+			HTTPFetcherError(shortError))
+		outArgs = FetcherOutArgs(errorStr=errorStr, shortError=shortError)
 	
 	try:
 		cPickle.dump(outArgs, sys.stdout)
