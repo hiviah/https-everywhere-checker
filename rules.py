@@ -49,7 +49,7 @@ class Exclusion(object):
 		"""Returns true iff this exclusion rule matches given url
 		@param url: URL to check as string
 		"""
-		return self.exclusionRe.match(url) is not None
+		return self.exclusionRe.search(url) is not None
 	
 class Ruleset(object):
 	"""Represents one XML ruleset file."""
