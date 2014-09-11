@@ -5,7 +5,7 @@ from lxml import etree
 from cStringIO import StringIO
 
 import struct
-import bsdiff
+import bsdiff4 as bsdiff
 import Levenshtein
 
 class Metric(object):

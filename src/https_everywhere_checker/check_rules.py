@@ -116,7 +116,7 @@ class UrlComparisonThread(threading.Thread):
 					plainUrl, transformedUrl, ruleFname)
 
 
-if __name__ == "__main__":
+def cli():
 	if len(sys.argv) < 2:
 		print >> sys.stderr, "check_rules.py checker.config"
 		sys.exit(1)
@@ -249,3 +249,6 @@ if __name__ == "__main__":
 	taskQueue.join()
 	logging.info("Finished in %.2f seconds. Loaded rulesets: %d, URL pairs: %d.",
 		time.time() - startTime, len(xmlFnames), testedUrlPairCount)
+
+if __name__ == '__main__':
+	sys.exit(cli())
