@@ -1,14 +1,20 @@
 HTTPS Everywhere Rule Checker
 =============================
 
-Author: Ondrej Mikle, CZ.NIC (ondrej.mikle \|at\_sign\| nic.cz)
+Author: Ondrej Mikle, CZ.NIC (ondrej.mikle@nic.cz)
 
-Installation and requirements
------------------------------
+Installation
+------------
 
 ::
 
     pip install https-everywhere-checker
+
+or using the supplied setup.py
+
+::
+
+    python setup.py install
 
 Configuration
 -------------
