@@ -14,13 +14,21 @@ class Rule(object):
 		#break for rules whose domain begins with a digit.
 		self.toPattern = regex.sub(r"\$(\d)", r"\\g<\1>", attrs["to"])
 		self.fromRe = regex.compile(self.fromPattern)
+		# Test cases that this rule applies to.
+		self.tests = []
 	
 	def apply(self, url):
 		"""Apply rule to URL string and return result."""
 		return self.fromRe.sub(self.toPattern, url)
+
+	def matches(self, url):
+		"""Returns true iff this rule matches given url
+		@param url: URL to check as string
+		"""
+		return self.fromRe.search(url) is not None
 	
 	def __repr__(self):
-		return "<Rule from '%s' to '%s'>" % (self.fromRegex, self.toRegex)
+		return "<Rule from '%s' to '%s'>" % (self.fromRe, self.toPattern)
 	
 	def __str__(self):
 		return self.__repr__()
@@ -44,12 +52,23 @@ class Exclusion(object):
 		"""
 		self.exclusionPattern = exclusionElem.attrib["pattern"]
 		self.exclusionRe = regex.compile(self.exclusionPattern)
+		# Test cases that this exclusion applies to.
+		self.tests = []
 	
 	def matches(self, url):
 		"""Returns true iff this exclusion rule matches given url
 		@param url: URL to check as string
 		"""
 		return self.exclusionRe.search(url) is not None
+
+class Test(object):
+	"""A test case from a <test url=""> element"""
+	
+	def __init__(self, url):
+		"""Create instance from <test> element
+		@param exclusionElem: <test> element from lxml tree
+		"""
+		self.url = url
 	
 class Ruleset(object):
 	"""Represents one XML ruleset file."""
@@ -65,6 +84,8 @@ class Ruleset(object):
 	
 	#convert each etree Element of list into Exclusion
 	_exclusionConvert = lambda elemList: [Exclusion(elem) for elem in elemList]
+
+	_testConvert = lambda elemList: [Test(elem.attrib["url"]) for elem in elemList]
 	
 	#functional description of converting XML elements/attributes into
 	#instance variables. Tuples are:
@@ -76,6 +97,7 @@ class Ruleset(object):
 		("targets",	"target/@host",		_idnAttrs),
 		("rules",	"rule", 		_rulesConvert),
 		("exclusions",	"exclusion", 		_exclusionConvert),
+		("tests",	"test", 		_testConvert),
 	]
 	
 	def __init__(self, xmlTree, filename):
@@ -95,13 +117,14 @@ class Ruleset(object):
 		self.targets = []
 		self.exclusions = []
 		self.filename = filename
+		self.tests = []
 		
 		for (attrName, xpath, conversion) in self._attrConvert:
 			elems = root.xpath(xpath)
 			if elems:
 				setattr(self, attrName, conversion(elems))
 			
-		
+		self._addTests()
 	
 	def excludes(self, url):
 		"""Returns True iff one of exclusion patterns matches the url."""
@@ -117,25 +140,65 @@ class Ruleset(object):
 			return url
 		
 		for rule in self.rules:
-			newUrl = rule.apply(url)
-			if url != newUrl:
-				return newUrl #only one rewrite
+			try:
+				newUrl = rule.apply(url)
+				if url != newUrl:
+					return newUrl #only one rewrite
+			except Error, e:
+				raise Error(e + " " + rule.fromPattern)
 		
 		return url #nothing rewritten
 		
-	def uniqueTargetFQDNs(self):
-		"""Returns unique FQDNs found in <target> elements.
-		Any FQDNs with wildcard part are skipped.
-		
-		@returns: iterable of FQDN strings
-		"""
-		uniqueFQDNs = set()
+	def _addTests(self):
+		"""In addition to any tests provided as <test> elements, add a test case for
+		each non-wildcard target."""
 		for target in self.targets:
 			if '*' in target:
 				continue
-			uniqueFQDNs.add(target)
-		
-		return uniqueFQDNs
+			self.tests.append(Test("http://%s/" % target))
+
+	def getCoverageProblems(self):
+		"""Verify that each rule and each exclusion has the right number of tests
+			 that applies to it. TODO: Also check that each target has the right
+			 number of tests. In particular left-wildcard targets should have at least
+			 three tests. Right-wildcard targets should have at least ten tests.
+
+			 Returns an array of strings reporting any coverage problems if they exist,
+			 or empty list if coverage is sufficient.
+			 """
+		# First, match each test against a rule or exclusion if possible, and hang
+		# them off that rule or exclusion.
+		problems = []
+		for test in self.tests:
+			applies = self._whatApplies(test.url)
+			if applies:
+				applies.tests.append(test)
+			else:
+				problems.append("%s: No rule or exclusion applies to test URL %s" % (
+					self.filename, test.url))
+		# Next, make sure each rule or exclusion has sufficient tests.
+		for rule in self.rules:
+			needed_count = 1 + len(regex.findall("[+*?|]", rule.fromPattern))
+			actual_count = len(rule.tests)
+			if actual_count < needed_count:
+				problems.append("%s: Not enough tests (%d vs %s) for %s" % (
+					self.filename, actual_count, needed_count, rule))
+				pass
+		for exclusion in self.exclusions:
+			needed_count = 1 + len(regex.findall("[+*?|]", exclusion.exclusionPattern))
+			actual_count = len(exclusion.tests)
+			if actual_count < needed_count:
+				problems.append("%s: Not enough tests (%d vs %s) for %s" % (
+					self.filename, actual_count, needed_count, rule))
+		return problems
+
+	def _whatApplies(self, url):
+		for exclusion in self.exclusions:
+			if exclusion.matches(url):
+				return exclusion
+		for rule in self.rules:
+			if rule.matches(url):
+				return rule
 	
 	def __repr__(self):
 		return "<Ruleset(name=%s, platform=%s)>" % (repr(self.name), repr(self.platform))

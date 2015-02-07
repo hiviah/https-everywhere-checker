@@ -108,8 +108,8 @@ class UrlComparisonThread(threading.Thread):
 					logging.info("Big distance %0.4f: %s (%d) -> %s (%d). Rulefile: %s =====",
 						distance, plainUrl, len(plainPage), transformedUrl, len(transformedPage), ruleFname)
 			except Exception, e:
-				logging.exception("Failed to process %s: %s. Rulefile: %s",
-					plainUrl, e, ruleFname)
+				logging.error("%s: Failed to process %s: %s %s.",
+					ruleFname, plainUrl, type(e), e)
 			finally:
 				self.taskQueue.task_done()
 				logging.info("Finished comparing %s -> %s. Rulefile: %s.",
@@ -123,6 +123,10 @@ def cli():
 	
 	config = SafeConfigParser()
 	config.read(sys.argv[1])
+
+	filesToRead = []
+	if len(sys.argv) > 2:
+		filesToRead = sys.argv[2:]
 	
 	logfile = config.get("log", "logfile")
 	loglevel = convertLoglevel(config.get("log", "loglevel"))
@@ -134,6 +138,9 @@ def cli():
 			format="%(asctime)s %(levelname)s %(message)s [%(pathname)s:%(lineno)d]")
 		
 	ruledir = config.get("rulesets", "rulesdir")
+	checkCoverage = False
+	if config.has_option("rulesets", "check_coverage"):
+		checkCoverage = config.getboolean("rulesets", "check_coverage")
 	certdir = config.get("certificates", "basedir")
 	
 	threadCount = config.getint("http", "threads")
@@ -163,27 +170,44 @@ def cli():
 		graphvizFile = config.get("debug", "graphviz_file")
 		exitAfterDump = config.getboolean("debug", "exit_after_dump")
 	
-	
-	xmlFnames = glob.glob(os.path.join(ruledir, "*.xml"))
+	if filesToRead:
+		xmlFnames = filesToRead
+	else:
+		xmlFnames = glob.glob(os.path.join(ruledir, "*.xml"))
 	trie = RuleTrie()
 	
 	# set of main pages to test
 	mainPages = set(urlList)
 	
+	coverageProblemsExist = False
 	for xmlFname in xmlFnames:
+		logging.debug("Parsing %s", xmlFname)
 		ruleset = Ruleset(etree.parse(file(xmlFname)).getroot(), xmlFname)
 		if ruleset.defaultOff:
 			logging.debug("Skipping rule '%s', reason: %s", ruleset.name, ruleset.defaultOff)
 			continue
-		#if list of URLs to test/scan was not defined, guess URLs from target elements
+		# Check whether ruleset coverage by tests was sufficient.
+		if checkCoverage:
+			problems = ruleset.getCoverageProblems()
+			for problem in problems:
+				coverageProblemsExist = True
+				logging.error(problem)
+		#if list of URLs to test/scan was not defined, use the test URL extraction
+		#methods built into the Ruleset implementation.
 		if not urlList:
-			for target in ruleset.uniqueTargetFQDNs():
-				targetHTTPLangingPage = "http://%s/" % target
-				if not ruleset.excludes(targetHTTPLangingPage):
-					mainPages.add(targetHTTPLangingPage)
+			for test in ruleset.tests:
+				if not ruleset.excludes(test.url):
+					mainPages.add(test.url)
 				else:
-					logging.debug("Skipping landing page %s", targetHTTPLangingPage)
+					logging.debug("Skipping landing page %s", test.url)
 		trie.addRuleset(ruleset)
+
+	# In checkCoverage mode, don't do the HTTPS fetches.
+	if checkCoverage:
+		if coverageProblemsExist:
+			return 1 # exit with error code
+		else:
+			return 0 # exit with success
 	
 	# Trie is built now, dump it if it's set in config
 	if dumpGraphvizTrie:
@@ -233,13 +257,13 @@ def cli():
 			ruleFname = os.path.basename(ruleMatch.ruleset.filename)
 			fetcher = fetcherMap.get(ruleMatch.ruleset.platform)
 			if not fetcher:
-				logging.warn("Unknown platform '%s', using 'default' instead. Rulefile: %s.",
-					ruleMatch.ruleset.platform, ruleFname)
+				logging.warn("%s: Unknown platform '%s', skipping.",
+					ruleFname, ruleMatch.ruleset.platform)
 				fetcher = fetcherMap["default"]
 				
 		except:
-			logging.exception("Failed to transform plain URL %s. Rulefile: %s.",
-				plainUrl, ruleFname)
+			logging.error("%s: Failed to transform plain URL %s. Rulefile: %s.",
+				ruleFname, plainUrl)
 			continue
 		
 		testedUrlPairCount += 1
