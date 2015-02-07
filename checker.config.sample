@@ -5,7 +5,7 @@ check_coverage = true
 
 #Certificate trust anchors for checking chains in HTTPS connections
 [certificates]
-basedir = platform_certs
+basedir = https-everywhere-checker/platform_certs
 
 #HTTP(S) fetching options
 # Timeouts are in seconds.
