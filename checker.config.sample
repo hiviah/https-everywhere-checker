@@ -1,7 +1,8 @@
 #Directory with XML files describing HTTPS Everywhere rulesets
 [rulesets]
 rulesdir = /home/jsha/https-everywhere/src/chrome/content/rules
-check_coverage = true
+#check_coverage = true
+auto_disable = true
 
 #Certificate trust anchors for checking chains in HTTPS connections
 [certificates]
@@ -33,7 +34,7 @@ basedir = https-everywhere-checker/platform_certs
 connect_timeout = 10
 read_timeout = 15
 redirect_depth = 10
-threads = 10
+threads = 20
 #user_agent = Mozilla/5.0 (X11; Linux x86_64; rv:14.0) Gecko/20100101 Firefox/14.0.1
 #curl_verbose = true
 #ssl_version = TLSv1
@@ -46,7 +47,7 @@ fetch_in_subprocess = false
 # loglevel - minimal log messages severity - one of debug, info, warn, error, fatal
 [log]
 logfile = -
-loglevel = error
+loglevel = debug
 
 #Metric and threshold for marking two HTML pages "different"
 # metric - what metric to use, either "markup" or "bsdiff"
