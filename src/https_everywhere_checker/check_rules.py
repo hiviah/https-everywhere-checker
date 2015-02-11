@@ -62,7 +62,7 @@ class UrlComparisonThread(threading.Thread):
 	"""Thread worker for comparing plain and rewritten URLs.
 	"""
 	
-	def __init__(self, taskQueue, metric, thresholdDistance):
+	def __init__(self, taskQueue, metric, thresholdDistance, autoDisable):
 		"""
 		Comparison thread running HTTP/HTTPS scans.
 		
@@ -73,6 +73,7 @@ class UrlComparisonThread(threading.Thread):
 		self.taskQueue = taskQueue
 		self.metric = metric
 		self.thresholdDistance = thresholdDistance
+		self.autoDisable = autoDisable
 		threading.Thread.__init__(self)
 
 	def run(self):
@@ -89,7 +90,8 @@ class UrlComparisonThread(threading.Thread):
 		if problems:
 			for problem in problems:
 				logging.error("%s: %s" % (task.ruleFname, problem))
-			disableRuleset(task.ruleset, problems)
+			if self.autoDisable:
+				disableRuleset(task.ruleset, problems)
 
 	def processUrl(self, plainUrl, task):
 		transformedUrl = task.ruleset.apply(plainUrl)
@@ -170,6 +172,13 @@ def cli():
 		logging.basicConfig(filename=logfile, level=loglevel,
 			format="%(asctime)s %(levelname)s %(message)s [%(pathname)s:%(lineno)d]")
 		
+	autoDisable = False
+	if config.has_option("rulesets", "auto_disable"):
+		autoDisable = config.getboolean("rulesets", "auto_disable")
+	# Test rules even if they have default_off=...
+	includeDefaultOff = False
+	if config.has_option("rulesets", "include_default_off"):
+		includeDefaultOff = config.getboolean("rulesets", "include_default_off")
 	ruledir = config.get("rulesets", "rulesdir")
 	checkCoverage = False
 	if config.has_option("rulesets", "check_coverage"):
@@ -177,6 +186,9 @@ def cli():
 	certdir = config.get("certificates", "basedir")
 	
 	threadCount = config.getint("http", "threads")
+	httpEnabled = True
+	if config.has_option("http", "enabled"):
+		httpEnabled = config.getboolean("http", "enabled")
 	
 	#get all platform dirs, make sure "default" is among them
 	certdirFiles = glob.glob(os.path.join(certdir, "*"))
@@ -209,7 +221,7 @@ def cli():
 	for xmlFname in xmlFnames:
 		logging.debug("Parsing %s", xmlFname)
 		ruleset = Ruleset(etree.parse(file(xmlFname)).getroot(), xmlFname)
-		if ruleset.defaultOff:
+		if ruleset.defaultOff and not includeDefaultOff:
 			logging.debug("Skipping rule '%s', reason: %s", ruleset.name, ruleset.defaultOff)
 			continue
 		# Check whether ruleset coverage by tests was sufficient.
@@ -220,13 +232,6 @@ def cli():
 				logging.error(problem)
 		trie.addRuleset(ruleset)
 		rulesets.append(ruleset)
-
-	# In checkCoverage mode, don't do the HTTPS fetches.
-	if checkCoverage:
-		if coverageProblemsExist:
-			return 1 # exit with error code
-		else:
-			return 0 # exit with success
 	
 	# Trie is built now, dump it if it's set in config
 	if dumpGraphvizTrie:
@@ -256,9 +261,10 @@ def cli():
 	taskQueue = Queue.Queue(1000)
 	startTime = time.time()
 	testedUrlPairCount = 0
+	config.getboolean("debug", "exit_after_dump")
 	
 	for i in range(threadCount):
-		t = UrlComparisonThread(taskQueue, metric, thresholdDistance)
+		t = UrlComparisonThread(taskQueue, metric, thresholdDistance, autoDisable)
 		t.setDaemon(True)
 		t.start()
 
@@ -267,25 +273,32 @@ def cli():
 		with file(config.get("http", "url_list")) as urlFile:
 			urlList = [line.rstrip() for line in urlFile.readlines()]
 			
-	# set of main pages to test
-	mainPages = set(urlList)
-	# If list of URLs to test/scan was not defined, use the test URL extraction
-	# methods built into the Ruleset implementation.
-	if not urlList:
-		for ruleset in rulesets:
-			testUrls = []
-			for test in ruleset.tests:
-				if not ruleset.excludes(test.url):
-					testedUrlPairCount += 1
-					testUrls.append(test.url)
-				else:
-					logging.debug("Skipping landing page %s", test.url)
-			task = ComparisonTask(testUrls, fetcherPlain, fetcher, ruleset)
-			taskQueue.put(task)
+	if httpEnabled:
+		# set of main pages to test
+		mainPages = set(urlList)
+		# If list of URLs to test/scan was not defined, use the test URL extraction
+		# methods built into the Ruleset implementation.
+		if not urlList:
+			for ruleset in rulesets:
+				testUrls = []
+				for test in ruleset.tests:
+					if not ruleset.excludes(test.url):
+						testedUrlPairCount += 1
+						testUrls.append(test.url)
+					else:
+						logging.debug("Skipping landing page %s", test.url)
+				task = ComparisonTask(testUrls, fetcherPlain, fetcher, ruleset)
+				taskQueue.put(task)
 
 	taskQueue.join()
 	logging.info("Finished in %.2f seconds. Loaded rulesets: %d, URL pairs: %d.",
 		time.time() - startTime, len(xmlFnames), testedUrlPairCount)
+
+	if checkCoverage:
+		if coverageProblemsExist:
+			return 1 # exit with error code
+		else:
+			return 0 # exit with success
 
 if __name__ == '__main__':
 	sys.exit(cli())
