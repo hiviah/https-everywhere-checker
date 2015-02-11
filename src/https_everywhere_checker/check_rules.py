@@ -258,22 +258,22 @@ def cli():
 	#fetches pages with unrewritten URLs
 	fetcherPlain = http_client.HTTPFetcher("default", platforms, fetchOptions)
 	
-	taskQueue = Queue.Queue(1000)
-	startTime = time.time()
-	testedUrlPairCount = 0
-	config.getboolean("debug", "exit_after_dump")
-	
-	for i in range(threadCount):
-		t = UrlComparisonThread(taskQueue, metric, thresholdDistance, autoDisable)
-		t.setDaemon(True)
-		t.start()
-
 	urlList = []
 	if config.has_option("http", "url_list"):
 		with file(config.get("http", "url_list")) as urlFile:
 			urlList = [line.rstrip() for line in urlFile.readlines()]
 			
 	if httpEnabled:
+		taskQueue = Queue.Queue(1000)
+		startTime = time.time()
+		testedUrlPairCount = 0
+		config.getboolean("debug", "exit_after_dump")
+
+		for i in range(threadCount):
+			t = UrlComparisonThread(taskQueue, metric, thresholdDistance, autoDisable)
+			t.setDaemon(True)
+			t.start()
+
 		# set of main pages to test
 		mainPages = set(urlList)
 		# If list of URLs to test/scan was not defined, use the test URL extraction
@@ -289,10 +289,9 @@ def cli():
 						logging.debug("Skipping landing page %s", test.url)
 				task = ComparisonTask(testUrls, fetcherPlain, fetcher, ruleset)
 				taskQueue.put(task)
-
-	taskQueue.join()
-	logging.info("Finished in %.2f seconds. Loaded rulesets: %d, URL pairs: %d.",
-		time.time() - startTime, len(xmlFnames), testedUrlPairCount)
+		taskQueue.join()
+		logging.info("Finished in %.2f seconds. Loaded rulesets: %d, URL pairs: %d.",
+			time.time() - startTime, len(xmlFnames), testedUrlPairCount)
 
 	if checkCoverage:
 		if coverageProblemsExist:

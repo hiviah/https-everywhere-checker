@@ -61,6 +61,10 @@ class Exclusion(object):
 		"""
 		return self.exclusionRe.search(url) is not None
 
+	def __repr__(self):
+		return "<Exclusion pattern '%s'>" % (self.exclusionPattern)
+	
+
 class Test(object):
 	"""A test case from a <test url=""> element"""
 	
@@ -144,8 +148,8 @@ class Ruleset(object):
 				newUrl = rule.apply(url)
 				if url != newUrl:
 					return newUrl #only one rewrite
-			except Error, e:
-				raise Error(e + " " + rule.fromPattern)
+			except Exception, e:
+				raise Exception(e.__str__() + " " + rule.fromPattern)
 		
 		return url #nothing rewritten
 		
@@ -171,6 +175,7 @@ class Ruleset(object):
 		problems = []
 		for test in self.tests:
 			applies = self._whatApplies(test.url)
+			print("%s ---> %s" % (test.url, applies))
 			if applies:
 				applies.tests.append(test)
 			else:
@@ -179,6 +184,7 @@ class Ruleset(object):
 		# Next, make sure each rule or exclusion has sufficient tests.
 		for rule in self.rules:
 			needed_count = 1 + len(regex.findall("[+*?|]", rule.fromPattern))
+			needed_count = needed_count - len(regex.findall("\(\?:", rule.fromPattern))
 			actual_count = len(rule.tests)
 			if actual_count < needed_count:
 				problems.append("%s: Not enough tests (%d vs %s) for %s" % (
@@ -186,10 +192,11 @@ class Ruleset(object):
 				pass
 		for exclusion in self.exclusions:
 			needed_count = 1 + len(regex.findall("[+*?|]", exclusion.exclusionPattern))
+			needed_count = needed_count - len(regex.findall("\(\?:", exclusion.exclusionPattern))
 			actual_count = len(exclusion.tests)
 			if actual_count < needed_count:
 				problems.append("%s: Not enough tests (%d vs %s) for %s" % (
-					self.filename, actual_count, needed_count, rule))
+					self.filename, actual_count, needed_count, exclusion))
 		return problems
 
 	def _whatApplies(self, url):
