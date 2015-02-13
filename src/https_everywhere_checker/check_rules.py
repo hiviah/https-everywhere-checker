@@ -78,8 +78,11 @@ class UrlComparisonThread(threading.Thread):
 
 	def run(self):
 		while True:
-			self.processTask(self.taskQueue.get())
-			self.taskQueue.task_done()
+			try:
+				self.processTask(self.taskQueue.get())
+				self.taskQueue.task_done()
+			except Exception, e:
+				logger.exception(e)
 
 	def processTask(self, task):
 		problems = []
@@ -142,11 +145,18 @@ def disableRuleset(ruleset, problems):
 	contents = re.sub("(<ruleset [^>]*)>",
 		"\\1 default_off='failed ruleset test'>", contents)
 
+	# Since the problems are going to be inserted into an XML comment, they cannot
+	# contain "--", or they will generate a parse error. Split up all "--" with a
+	# space in the middle.
+	safeProblems = [re.sub('--', '- -', p) for p in problems]
 	# If there's not already a comment section at the beginning, add one.
 	if not re.search("^<!--", contents):
 		contents = "<!--\n-->\n" + contents
-	problemStatement = ("<!--\nDisabled by https-everywhere-checker because:\n" +
-		"\n".join(problems))
+	problemStatement = ("""
+<!--
+Disabled by https-everywhere-checker because:
+%s
+""" % "\n".join(problems))
 	contents = re.sub("^<!--", problemStatement, contents)
 	with open(ruleset.filename, "w") as f:
 		f.write(contents)
@@ -220,7 +230,10 @@ def cli():
 	coverageProblemsExist = False
 	for xmlFname in xmlFnames:
 		logging.debug("Parsing %s", xmlFname)
-		ruleset = Ruleset(etree.parse(file(xmlFname)).getroot(), xmlFname)
+		try:
+			ruleset = Ruleset(etree.parse(file(xmlFname)).getroot(), xmlFname)
+		except:
+			logger.error("Exception parsing %s: %s" % (xmlFname, e))
 		if ruleset.defaultOff and not includeDefaultOff:
 			logging.debug("Skipping rule '%s', reason: %s", ruleset.name, ruleset.defaultOff)
 			continue
