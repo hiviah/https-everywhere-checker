@@ -175,7 +175,6 @@ class Ruleset(object):
 		problems = []
 		for test in self.tests:
 			applies = self._whatApplies(test.url)
-			print("%s ---> %s" % (test.url, applies))
 			if applies:
 				applies.tests.append(test)
 			else:
