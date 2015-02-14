@@ -1,11 +1,13 @@
 ﻿#!/usr/bin/env python
 
-import sys
-import os
+import collections
 import glob
 import logging
-import threading
+import os
 import Queue
+import re
+import sys
+import threading
 import time
 
 from ConfigParser import SafeConfigParser
@@ -45,21 +47,22 @@ def getMetricClass(metricType):
 
 
 class ComparisonTask(object):
-	"""Container for objects necessary for one plain/rewritten URL comparison.
+	"""Container for objects necessary for several plain/rewritten URL comparison
+		 associated with a single ruleset.
 	"""
 	
-	def __init__(self, plainUrl, transformedUrl, fetcherPlain, fetcherRewriting, ruleFname):
-		self.plainUrl = plainUrl
-		self.transformedUrl = transformedUrl
+	def __init__(self, urls, fetcherPlain, fetcherRewriting, ruleset):
+		self.urls = urls
 		self.fetcherPlain = fetcherPlain
 		self.fetcherRewriting = fetcherRewriting
-		self.ruleFname = ruleFname
+		self.ruleset = ruleset
+		self.ruleFname = ruleset.filename
 	
 class UrlComparisonThread(threading.Thread):
 	"""Thread worker for comparing plain and rewritten URLs.
 	"""
 	
-	def __init__(self, taskQueue, metric, thresholdDistance):
+	def __init__(self, taskQueue, metric, thresholdDistance, autoDisable):
 		"""
 		Comparison thread running HTTP/HTTPS scans.
 		
@@ -70,51 +73,93 @@ class UrlComparisonThread(threading.Thread):
 		self.taskQueue = taskQueue
 		self.metric = metric
 		self.thresholdDistance = thresholdDistance
+		self.autoDisable = autoDisable
 		threading.Thread.__init__(self)
 
 	def run(self):
 		while True:
-			task = self.taskQueue.get()
-			
-			plainUrl = task.plainUrl
-			transformedUrl = task.transformedUrl
-			fetcherPlain = task.fetcherPlain
-			fetcherRewriting = task.fetcherRewriting
-			ruleFname = task.ruleFname
-			
 			try:
-				logging.debug("=**= Start %s => %s ****", plainUrl, transformedUrl)
-				logging.debug("Fetching plain page %s", plainUrl)
-				plainRcode, plainPage = fetcherPlain.fetchHtml(plainUrl)
-				logging.debug("Fetching transformed page %s", transformedUrl)
-				transformedRcode, transformedPage = fetcherRewriting.fetchHtml(transformedUrl)
-				
-				#Compare HTTP return codes - if original page returned 2xx,
-				#but the transformed didn't, consider it an error in ruleset
-				#(note this is not symmetric, we don't care if orig page is broken).
-				#We don't handle 1xx codes for now.
-				if plainRcode//100 == 2 and transformedRcode//100 != 2:
-					logging.error("Non-2xx HTTP code: %s (%d) => %s (%d). Rulefile: %s",
-						plainUrl, plainRcode, transformedUrl, transformedRcode,
-						ruleFname)
-					continue
-				
-				distance = self.metric.distanceNormed(plainPage, transformedPage)
-				
-				logging.debug("==== D: %0.4f; %s (%d) -> %s (%d) =====",
-					distance,plainUrl, len(plainPage), transformedUrl, len(transformedPage))
-				
-				if distance >= self.thresholdDistance:
-					logging.info("Big distance %0.4f: %s (%d) -> %s (%d). Rulefile: %s =====",
-						distance, plainUrl, len(plainPage), transformedUrl, len(transformedPage), ruleFname)
-			except Exception, e:
-				logging.exception("Failed to process %s: %s. Rulefile: %s",
-					plainUrl, e, ruleFname)
-			finally:
+				self.processTask(self.taskQueue.get())
 				self.taskQueue.task_done()
-				logging.info("Finished comparing %s -> %s. Rulefile: %s.",
-					plainUrl, transformedUrl, ruleFname)
+			except Exception, e:
+				logger.exception(e)
 
+	def processTask(self, task):
+		problems = []
+		for url in task.urls:
+			result = self.processUrl(url, task)
+			if result:
+				problems.append(result)
+		if problems:
+			for problem in problems:
+				logging.error("%s: %s" % (task.ruleFname, problem))
+			if self.autoDisable:
+				disableRuleset(task.ruleset, problems)
+
+	def processUrl(self, plainUrl, task):
+		transformedUrl = task.ruleset.apply(plainUrl)
+		fetcherPlain = task.fetcherPlain
+		fetcherRewriting = task.fetcherRewriting
+		ruleFname = task.ruleFname
+		
+		try:
+			logging.debug("=**= Start %s => %s ****", plainUrl, transformedUrl)
+			logging.debug("Fetching plain page %s", plainUrl)
+			plainRcode, plainPage = fetcherPlain.fetchHtml(plainUrl)
+			logging.debug("Fetching transformed page %s", transformedUrl)
+			transformedRcode, transformedPage = fetcherRewriting.fetchHtml(transformedUrl)
+			
+			#Compare HTTP return codes - if original page returned 2xx,
+			#but the transformed didn't, consider it an error in ruleset
+			#(note this is not symmetric, we don't care if orig page is broken).
+			#We don't handle 1xx codes for now.
+			if plainRcode//100 == 2 and transformedRcode//100 != 2:
+				message = "Non-2xx HTTP code: %s (%d) => %s (%d)" % (
+					plainUrl, plainRcode, transformedUrl, transformedRcode)
+				logging.debug(message)
+				return message
+			
+			distance = self.metric.distanceNormed(plainPage, transformedPage)
+			
+			logging.debug("==== D: %0.4f; %s (%d) -> %s (%d) =====",
+				distance,plainUrl, len(plainPage), transformedUrl, len(transformedPage))
+			
+			if distance >= self.thresholdDistance:
+				logging.info("Big distance %0.4f: %s (%d) -> %s (%d). Rulefile: %s =====",
+					distance, plainUrl, len(plainPage), transformedUrl, len(transformedPage), ruleFname)
+		except Exception, e:
+			message = "Fetch error: %s => %s: %s" % (
+				plainUrl, transformedUrl, e)
+			logging.debug(message)
+			return message
+		finally:
+			logging.info("Finished comparing %s -> %s. Rulefile: %s.",
+				plainUrl, transformedUrl, ruleFname)
+
+def disableRuleset(ruleset, problems):
+	logging.info("Disabling ruleset %s", ruleset.filename)
+	contents = open(ruleset.filename).read()
+	# Don't bother to disable rulesets that are already disabled
+	if re.search("\bdefault_off=", contents):
+		return
+	contents = re.sub("(<ruleset [^>]*)>",
+		"\\1 default_off='failed ruleset test'>", contents)
+
+	# Since the problems are going to be inserted into an XML comment, they cannot
+	# contain "--", or they will generate a parse error. Split up all "--" with a
+	# space in the middle.
+	safeProblems = [re.sub('--', '- -', p) for p in problems]
+	# If there's not already a comment section at the beginning, add one.
+	if not re.search("^<!--", contents):
+		contents = "<!--\n-->\n" + contents
+	problemStatement = ("""
+<!--
+Disabled by https-everywhere-checker because:
+%s
+""" % "\n".join(problems))
+	contents = re.sub("^<!--", problemStatement, contents)
+	with open(ruleset.filename, "w") as f:
+		f.write(contents)
 
 def cli():
 	if len(sys.argv) < 2:
@@ -123,6 +168,10 @@ def cli():
 	
 	config = SafeConfigParser()
 	config.read(sys.argv[1])
+
+	filesToRead = []
+	if len(sys.argv) > 2:
+		filesToRead = sys.argv[2:]
 	
 	logfile = config.get("log", "logfile")
 	loglevel = convertLoglevel(config.get("log", "loglevel"))
@@ -133,10 +182,23 @@ def cli():
 		logging.basicConfig(filename=logfile, level=loglevel,
 			format="%(asctime)s %(levelname)s %(message)s [%(pathname)s:%(lineno)d]")
 		
+	autoDisable = False
+	if config.has_option("rulesets", "auto_disable"):
+		autoDisable = config.getboolean("rulesets", "auto_disable")
+	# Test rules even if they have default_off=...
+	includeDefaultOff = False
+	if config.has_option("rulesets", "include_default_off"):
+		includeDefaultOff = config.getboolean("rulesets", "include_default_off")
 	ruledir = config.get("rulesets", "rulesdir")
+	checkCoverage = False
+	if config.has_option("rulesets", "check_coverage"):
+		checkCoverage = config.getboolean("rulesets", "check_coverage")
 	certdir = config.get("certificates", "basedir")
 	
 	threadCount = config.getint("http", "threads")
+	httpEnabled = True
+	if config.has_option("http", "enabled"):
+		httpEnabled = config.getboolean("http", "enabled")
 	
 	#get all platform dirs, make sure "default" is among them
 	certdirFiles = glob.glob(os.path.join(certdir, "*"))
@@ -150,11 +212,6 @@ def cli():
 	metricClass = getMetricClass(metricName)
 	metric = metricClass()
 	
-	urlList = []
-	if config.has_option("http", "url_list"):
-		with file(config.get("http", "url_list")) as urlFile:
-			urlList = [line.rstrip() for line in urlFile.readlines()]
-			
 	# Debugging options, graphviz dump
 	dumpGraphvizTrie = False
 	if config.has_option("debug", "dump_graphviz_trie"):
@@ -163,27 +220,31 @@ def cli():
 		graphvizFile = config.get("debug", "graphviz_file")
 		exitAfterDump = config.getboolean("debug", "exit_after_dump")
 	
-	
-	xmlFnames = glob.glob(os.path.join(ruledir, "*.xml"))
+	if filesToRead:
+		xmlFnames = filesToRead
+	else:
+		xmlFnames = glob.glob(os.path.join(ruledir, "*.xml"))
 	trie = RuleTrie()
 	
-	# set of main pages to test
-	mainPages = set(urlList)
-	
+	rulesets = []
+	coverageProblemsExist = False
 	for xmlFname in xmlFnames:
-		ruleset = Ruleset(etree.parse(file(xmlFname)).getroot(), xmlFname)
-		if ruleset.defaultOff:
+		logging.debug("Parsing %s", xmlFname)
+		try:
+			ruleset = Ruleset(etree.parse(file(xmlFname)).getroot(), xmlFname)
+		except:
+			logger.error("Exception parsing %s: %s" % (xmlFname, e))
+		if ruleset.defaultOff and not includeDefaultOff:
 			logging.debug("Skipping rule '%s', reason: %s", ruleset.name, ruleset.defaultOff)
 			continue
-		#if list of URLs to test/scan was not defined, guess URLs from target elements
-		if not urlList:
-			for target in ruleset.uniqueTargetFQDNs():
-				targetHTTPLangingPage = "http://%s/" % target
-				if not ruleset.excludes(targetHTTPLangingPage):
-					mainPages.add(targetHTTPLangingPage)
-				else:
-					logging.debug("Skipping landing page %s", targetHTTPLangingPage)
+		# Check whether ruleset coverage by tests was sufficient.
+		if checkCoverage:
+			problems = ruleset.getCoverageProblems()
+			for problem in problems:
+				coverageProblemsExist = True
+				logging.error(problem)
 		trie.addRuleset(ruleset)
+		rulesets.append(ruleset)
 	
 	# Trie is built now, dump it if it's set in config
 	if dumpGraphvizTrie:
@@ -210,45 +271,46 @@ def cli():
 	#fetches pages with unrewritten URLs
 	fetcherPlain = http_client.HTTPFetcher("default", platforms, fetchOptions)
 	
-	taskQueue = Queue.Queue(1000)
-	startTime = time.time()
-	testedUrlPairCount = 0
-	
-	for i in range(threadCount):
-		t = UrlComparisonThread(taskQueue, metric, thresholdDistance)
-		t.setDaemon(True)
-		t.start()
-	
-	for plainUrl in mainPages:
-		try:
-			ruleFname = None
-			ruleMatch = trie.transformUrl(plainUrl)
-			transformedUrl = ruleMatch.url
+	urlList = []
+	if config.has_option("http", "url_list"):
+		with file(config.get("http", "url_list")) as urlFile:
+			urlList = [line.rstrip() for line in urlFile.readlines()]
 			
-			if plainUrl == transformedUrl:
-				logging.info("Identical URL: %s", plainUrl)
-				continue
-			
-			#URL was transformed, thus ruleset must exist that did it
-			ruleFname = os.path.basename(ruleMatch.ruleset.filename)
-			fetcher = fetcherMap.get(ruleMatch.ruleset.platform)
-			if not fetcher:
-				logging.warn("Unknown platform '%s', using 'default' instead. Rulefile: %s.",
-					ruleMatch.ruleset.platform, ruleFname)
-				fetcher = fetcherMap["default"]
-				
-		except:
-			logging.exception("Failed to transform plain URL %s. Rulefile: %s.",
-				plainUrl, ruleFname)
-			continue
-		
-		testedUrlPairCount += 1
-		task = ComparisonTask(plainUrl, transformedUrl, fetcherPlain, fetcher, ruleFname)
-		taskQueue.put(task)
-		
-	taskQueue.join()
-	logging.info("Finished in %.2f seconds. Loaded rulesets: %d, URL pairs: %d.",
-		time.time() - startTime, len(xmlFnames), testedUrlPairCount)
+	if httpEnabled:
+		taskQueue = Queue.Queue(1000)
+		startTime = time.time()
+		testedUrlPairCount = 0
+		config.getboolean("debug", "exit_after_dump")
+
+		for i in range(threadCount):
+			t = UrlComparisonThread(taskQueue, metric, thresholdDistance, autoDisable)
+			t.setDaemon(True)
+			t.start()
+
+		# set of main pages to test
+		mainPages = set(urlList)
+		# If list of URLs to test/scan was not defined, use the test URL extraction
+		# methods built into the Ruleset implementation.
+		if not urlList:
+			for ruleset in rulesets:
+				testUrls = []
+				for test in ruleset.tests:
+					if not ruleset.excludes(test.url):
+						testedUrlPairCount += 1
+						testUrls.append(test.url)
+					else:
+						logging.debug("Skipping landing page %s", test.url)
+				task = ComparisonTask(testUrls, fetcherPlain, fetcher, ruleset)
+				taskQueue.put(task)
+		taskQueue.join()
+		logging.info("Finished in %.2f seconds. Loaded rulesets: %d, URL pairs: %d.",
+			time.time() - startTime, len(xmlFnames), testedUrlPairCount)
+
+	if checkCoverage:
+		if coverageProblemsExist:
+			return 1 # exit with error code
+		else:
+			return 0 # exit with success
 
 if __name__ == '__main__':
 	sys.exit(cli())

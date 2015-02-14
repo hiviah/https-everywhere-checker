@@ -52,6 +52,8 @@ class FetchOptions(object):
 		self.sslVersion = pycurl.SSLVERSION_DEFAULT
 		self.useSubprocess = True
 		self.staticCAPath = None
+		# The default list of cipher suites that ships with Firefox 35.0.1
+		self.cipherList = "RC4-MD5:RC4-SHA:DES-CBC3-SHA:AES128-SHA:AES256-SHA:DHE-DSS-AES128-SHA:DHE-RSA-AES128-SHA:DHE-RSA-AES256-SHA:ECDHE-RSA-RC4-SHA:ECDHE-RSA-AES128-SHA:ECDHE-RSA-AES256-SHA:ECDHE-ECDSA-RC4-SHA:ECDHE-ECDSA-AES128-SHA:ECDHE-ECDSA-AES256-SHA:ECDHE-RSA-AES128-GCM-SHA256:ECDHE-ECDSA-AES128-GCM-SHA256"
 
 		if config.has_option("http", "user_agent"):
 			self.userAgent = config.get("http", "user_agent")
@@ -59,6 +61,8 @@ class FetchOptions(object):
 			self.curlVerbose = config.getboolean("http", "curl_verbose")
 		if config.has_option("http", "fetch_in_subprocess"):
 			self.useSubprocess = config.getboolean("http", "fetch_in_subprocess")
+		if config.has_option("http", "cipherList"):
+			self.cipherList = config.get("http", "cipherList")
 		if config.has_option("http", "ssl_version"):
 			versionStr = config.get("http", "ssl_version")
 			try:
@@ -267,6 +271,7 @@ class HTTPFetcher(object):
 				c.setopt(c.USERAGENT, options.userAgent)
 			c.setopt(c.SSLVERSION, options.sslVersion)
 			c.setopt(c.VERBOSE, options.curlVerbose)
+			c.setopt(c.SSL_CIPHER_LIST, options.cipherList)
 			c.perform()
 			
 			bufValue = buf.getvalue()
