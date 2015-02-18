@@ -1,6 +1,8 @@
 ﻿#!/usr/bin/env python
 
 import collections
+import argparse
+import json
 import glob
 import logging
 import os
@@ -62,15 +64,17 @@ class UrlComparisonThread(threading.Thread):
 	"""Thread worker for comparing plain and rewritten URLs.
 	"""
 	
-	def __init__(self, taskQueue, metric, thresholdDistance, autoDisable):
+	def __init__(self, taskQueue, metric, thresholdDistance, autoDisable, resQueue):
 		"""
 		Comparison thread running HTTP/HTTPS scans.
 		
 		@param taskQueue: Queue.Queue filled with ComparisonTask objects
 		@param metric: metric.Metric instance
 		@param threshold: min distance that is reported as "too big"
+		@param resQueue: Result Queue, results are added there
 		"""
 		self.taskQueue = taskQueue
+		self.resQueue = resQueue
 		self.metric = metric
 		self.thresholdDistance = thresholdDistance
 		self.autoDisable = autoDisable
@@ -96,6 +100,25 @@ class UrlComparisonThread(threading.Thread):
 			if self.autoDisable:
 				disableRuleset(task.ruleset, problems)
 
+	def queue_result(self, result, details, fname, url, https_url=None):
+		"""
+		Add results to result Queue
+
+		@param result: Result of the test. "error" or "success"
+		@param details: More detailed results (in case of error)
+		@param fname: rule file name
+		@param  url: base url of the test (http)
+		@param https_url: re-written https url
+		"""
+
+		res = {"result": result,
+			   "details": details,
+			   "fname": fname,
+			   "url": url}
+		if https_url:
+			res["https_url"] = https_url
+		self.resQueue.put(res)
+
 	def processUrl(self, plainUrl, task):
 		transformedUrl = task.ruleset.apply(plainUrl)
 		fetcherPlain = task.fetcherPlain
@@ -116,6 +139,7 @@ class UrlComparisonThread(threading.Thread):
 			if plainRcode//100 == 2 and transformedRcode//100 != 2:
 				message = "Non-2xx HTTP code: %s (%d) => %s (%d)" % (
 					plainUrl, plainRcode, transformedUrl, transformedRcode)
+				self.queue_result("error", "non-2xx http code", task.ruleFname, plainUrl, https_url=transformedUrl)
 				logging.debug(message)
 				return message
 			
@@ -130,11 +154,13 @@ class UrlComparisonThread(threading.Thread):
 		except Exception, e:
 			message = "Fetch error: %s => %s: %s" % (
 				plainUrl, transformedUrl, e)
+			self.queue_result("error", "fetch-error %s"% e, task.ruleFname, plainUrl, https_url=transformedUrl)
 			logging.debug(message)
 			return message
 		finally:
 			logging.info("Finished comparing %s -> %s. Rulefile: %s.",
 				plainUrl, transformedUrl, ruleFname)
+			self.queue_result("success", "", task.ruleFname, plainUrl)
 
 def disableRuleset(ruleset, problems):
 	logging.info("Disabling ruleset %s", ruleset.filename)
@@ -161,17 +187,38 @@ Disabled by https-everywhere-checker because:
 	with open(ruleset.filename, "w") as f:
 		f.write(contents)
 
-def cli():
-	if len(sys.argv) < 2:
-		print >> sys.stderr, "check_rules.py checker.config"
-		sys.exit(1)
-	
-	config = SafeConfigParser()
-	config.read(sys.argv[1])
+def json_output(resQueue, json_file):
+	"""
+	output results in json format
 
-	filesToRead = []
-	if len(sys.argv) > 2:
-		filesToRead = sys.argv[2:]
+	@param resQueue: The result Queue
+	@param json_file: json file name to write to
+	"""
+	data = {}
+	try:
+		res = resQueue.get_nowait()
+		while res:
+			result_val = res["result"]
+			del (res["result"])
+			if not result_val in data:
+				data[result_val] = []
+			data[result_val].append(res)
+
+			res = resQueue.get_nowait()
+	except Queue.Empty:
+		pass # Got everything
+	with open(json_file, "wt") as fh:
+		json.dump(data, fh, indent = 4)
+
+def cli():
+	parser = argparse.ArgumentParser(description='Check HTTPs rules for validity')
+	parser.add_argument('checker_config', help='an integer for the accumulator')
+	parser.add_argument('rule_files', nargs="*", default=[], help="Specific XML rule files")
+	parser.add_argument('--json_file', default=None, help='write results in json file')
+	args = parser.parse_args()
+
+	config = SafeConfigParser()
+	config.read(args.checker_config)
 	
 	logfile = config.get("log", "logfile")
 	loglevel = convertLoglevel(config.get("log", "loglevel"))
@@ -220,8 +267,8 @@ def cli():
 		graphvizFile = config.get("debug", "graphviz_file")
 		exitAfterDump = config.getboolean("debug", "exit_after_dump")
 	
-	if filesToRead:
-		xmlFnames = filesToRead
+	if args.rule_files:
+		xmlFnames = args.rule_files
 	else:
 		xmlFnames = glob.glob(os.path.join(ruledir, "*.xml"))
 	trie = RuleTrie()
@@ -257,7 +304,6 @@ def cli():
 				graph.dot(gvFd)
 		if exitAfterDump:
 			sys.exit(0)
-	
 	fetchOptions = http_client.FetchOptions(config)
 	fetcherMap = dict() #maps platform to fetcher
 	
@@ -278,12 +324,13 @@ def cli():
 			
 	if httpEnabled:
 		taskQueue = Queue.Queue(1000)
+		resQueue = Queue.Queue()
 		startTime = time.time()
 		testedUrlPairCount = 0
 		config.getboolean("debug", "exit_after_dump")
 
 		for i in range(threadCount):
-			t = UrlComparisonThread(taskQueue, metric, thresholdDistance, autoDisable)
+			t = UrlComparisonThread(taskQueue, metric, thresholdDistance, autoDisable, resQueue)
 			t.setDaemon(True)
 			t.start()
 
@@ -305,7 +352,8 @@ def cli():
 		taskQueue.join()
 		logging.info("Finished in %.2f seconds. Loaded rulesets: %d, URL pairs: %d.",
 			time.time() - startTime, len(xmlFnames), testedUrlPairCount)
-
+		if args.json_file:
+			json_output(resQueue, args.json_file)
 	if checkCoverage:
 		if coverageProblemsExist:
 			return 1 # exit with error code
