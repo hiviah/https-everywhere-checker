@@ -82,7 +82,7 @@ class UrlComparisonThread(threading.Thread):
 				self.processTask(self.taskQueue.get())
 				self.taskQueue.task_done()
 			except Exception, e:
-				logger.exception(e)
+				logging.exception(e)
 
 	def processTask(self, task):
 		problems = []
@@ -232,8 +232,8 @@ def cli():
 		logging.debug("Parsing %s", xmlFname)
 		try:
 			ruleset = Ruleset(etree.parse(file(xmlFname)).getroot(), xmlFname)
-		except:
-			logger.error("Exception parsing %s: %s" % (xmlFname, e))
+		except Exception, e:
+			logging.error("Exception parsing %s: %s" % (xmlFname, e))
 		if ruleset.defaultOff and not includeDefaultOff:
 			logging.debug("Skipping rule '%s', reason: %s", ruleset.name, ruleset.defaultOff)
 			continue
