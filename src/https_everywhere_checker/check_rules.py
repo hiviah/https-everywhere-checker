@@ -187,12 +187,13 @@ Disabled by https-everywhere-checker because:
 	with open(ruleset.filename, "w") as f:
 		f.write(contents)
 
-def json_output(resQueue, json_file):
+def json_output(resQueue, json_file, problems):
 	"""
 	output results in json format
 
 	@param resQueue: The result Queue
 	@param json_file: json file name to write to
+	@param problems: A list of problems in XML files
 	"""
 	data = {}
 	try:
@@ -207,6 +208,9 @@ def json_output(resQueue, json_file):
 			res = resQueue.get_nowait()
 	except Queue.Empty:
 		pass # Got everything
+
+	data["coverage"] = problems
+
 	with open(json_file, "wt") as fh:
 		json.dump(data, fh, indent = 4)
 
@@ -289,7 +293,10 @@ def cli():
 			problems = ruleset.getCoverageProblems()
 			for problem in problems:
 				coverageProblemsExist = True
-				logging.error(problem)
+				if "exclusion" in problem:
+					logging.error("%(filename)s: Not enough tests (%(actual_count)d vs %(needed_count)d) for %(exclusion)s".format(problem))
+				elif "rule" in problem:
+					logging.error("%(filename)s: Not enough tests (%(actual_count)d vs %(needed_count)d) for %(rule)s" .format(problem))
 		trie.addRuleset(ruleset)
 		rulesets.append(ruleset)
 	
@@ -353,7 +360,7 @@ def cli():
 		logging.info("Finished in %.2f seconds. Loaded rulesets: %d, URL pairs: %d.",
 			time.time() - startTime, len(xmlFnames), testedUrlPairCount)
 		if args.json_file:
-			json_output(resQueue, args.json_file)
+			json_output(resQueue, args.json_file, problems)
 	if checkCoverage:
 		if coverageProblemsExist:
 			return 1 # exit with error code
