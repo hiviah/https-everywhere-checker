@@ -120,7 +120,13 @@ class UrlComparisonThread(threading.Thread):
 		self.resQueue.put(res)
 
 	def processUrl(self, plainUrl, task):
-		transformedUrl = task.ruleset.apply(plainUrl)
+		try:
+			transformedUrl = task.ruleset.apply(plainUrl)
+		except Exception, e:
+			self.queue_result("regex_error", str(e), task.ruleFname, plainUrl)
+			logging.error("%s: Regex Error %s" % (task.ruleFname, str(e)))
+			return
+
 		fetcherPlain = task.fetcherPlain
 		fetcherRewriting = task.fetcherRewriting
 		ruleFname = task.ruleFname
@@ -147,7 +153,7 @@ class UrlComparisonThread(threading.Thread):
 			
 			logging.debug("==== D: %0.4f; %s (%d) -> %s (%d) =====",
 				distance,plainUrl, len(plainPage), transformedUrl, len(transformedPage))
-			
+
 			self.queue_result("success", "", task.ruleFname, plainUrl)
 			if distance >= self.thresholdDistance:
 				logging.info("Big distance %0.4f: %s (%d) -> %s (%d). Rulefile: %s =====",
