@@ -148,6 +148,7 @@ class UrlComparisonThread(threading.Thread):
 			logging.debug("==== D: %0.4f; %s (%d) -> %s (%d) =====",
 				distance,plainUrl, len(plainPage), transformedUrl, len(transformedPage))
 			
+			self.queue_result("success", "", task.ruleFname, plainUrl)
 			if distance >= self.thresholdDistance:
 				logging.info("Big distance %0.4f: %s (%d) -> %s (%d). Rulefile: %s =====",
 					distance, plainUrl, len(plainPage), transformedUrl, len(transformedPage), ruleFname)
@@ -160,7 +161,6 @@ class UrlComparisonThread(threading.Thread):
 		finally:
 			logging.info("Finished comparing %s -> %s. Rulefile: %s.",
 				plainUrl, transformedUrl, ruleFname)
-			self.queue_result("success", "", task.ruleFname, plainUrl)
 
 def disableRuleset(ruleset, problems):
 	logging.info("Disabling ruleset %s", ruleset.filename)
