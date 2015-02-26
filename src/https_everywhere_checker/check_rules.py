@@ -1,7 +1,9 @@
 ﻿#!/usr/bin/env python
 
+import binascii
 import collections
 import glob
+import hashlib
 import logging
 import os
 import Queue
@@ -161,6 +163,19 @@ Disabled by https-everywhere-checker because:
 	with open(ruleset.filename, "w") as f:
 		f.write(contents)
 
+# A dict indexed by binary SHA256 hashes. A ruleset whose hash matches an entry in
+# the skiplist will skip tests. This is a way to grandfather in rules written
+# before the coverage tests were required, but also require coverage
+# improvements when updating the rules.
+skipdict = {}
+def skipFile(filename):
+	hasher = hashlib.new('sha256')
+	hasher.update(open(filename).read())
+	if hasher.digest() in skipdict:
+		return True
+	else:
+		return False
+
 def cli():
 	if len(sys.argv) < 2:
 		print >> sys.stderr, "check_rules.py checker.config"
@@ -194,7 +209,15 @@ def cli():
 	if config.has_option("rulesets", "check_coverage"):
 		checkCoverage = config.getboolean("rulesets", "check_coverage")
 	certdir = config.get("certificates", "basedir")
-	
+	if config.has_option("rulesets", "check_coverage"):
+		checkCoverage = config.getboolean("rulesets", "check_coverage")
+	if config.has_option("rulesets", "skiplist"):
+		skiplist = config.get("rulesets", "skiplist")
+		with open(skiplist) as f:
+			for line in f:
+				fileHash = line.split(" ")[0]
+				skipdict[binascii.unhexlify(fileHash)] = 1
+
 	threadCount = config.getint("http", "threads")
 	httpEnabled = True
 	if config.has_option("http", "enabled"):
@@ -230,6 +253,10 @@ def cli():
 	coverageProblemsExist = False
 	for xmlFname in xmlFnames:
 		logging.debug("Parsing %s", xmlFname)
+		if skipFile(xmlFname):
+			logging.debug("Skipping rule file '%s', matches skiplist." % xmlFname)
+			continue
+
 		try:
 			ruleset = Ruleset(etree.parse(file(xmlFname)).getroot(), xmlFname)
 		except:
@@ -239,6 +266,7 @@ def cli():
 			continue
 		# Check whether ruleset coverage by tests was sufficient.
 		if checkCoverage:
+			logging.debug("Checking coverage for '%s'." % ruleset.name)
 			problems = ruleset.getCoverageProblems()
 			for problem in problems:
 				coverageProblemsExist = True
