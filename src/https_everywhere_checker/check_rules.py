@@ -192,7 +192,7 @@ def cli():
 	loglevel = convertLoglevel(config.get("log", "loglevel"))
 	if logfile == "-":
 		logging.basicConfig(stream=sys.stderr, level=loglevel,
-			format="%(asctime)s %(levelname)s %(message)s [%(pathname)s:%(lineno)d]")
+			format="%(levelname)s %(message)s")
 	else:
 		logging.basicConfig(filename=logfile, level=loglevel,
 			format="%(asctime)s %(levelname)s %(message)s [%(pathname)s:%(lineno)d]")
@@ -327,7 +327,9 @@ def cli():
 						testedUrlPairCount += 1
 						testUrls.append(test.url)
 					else:
-						logging.debug("Skipping landing page %s", test.url)
+						# TODO: We should fetch the non-rewritten exclusion URLs to make
+						# sure they still exist.
+						logging.debug("Skipping excluded URL%s", test.url)
 				task = ComparisonTask(testUrls, fetcherPlain, fetcher, ruleset)
 				taskQueue.put(task)
 		taskQueue.join()

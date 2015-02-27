@@ -6,8 +6,13 @@ import urlparse
 import cStringIO
 import regex
 import cPickle
+import tempfile
 import traceback
 import subprocess
+
+# We need a cookie jar because some sites (e.g. forums.aws.amazon.com) go into a
+# redirect loop without it.
+COOKIE_FILE_NAME = tempfile.mkstemp()[1]
 
 class CertificatePlatforms(object):
 	"""Maps platform names from rulesets to CA certificate sets"""
@@ -262,6 +267,7 @@ class HTTPFetcher(object):
 			c.setopt(c.WRITEFUNCTION, buf.write)
 			c.setopt(c.HEADERFUNCTION, headerBuf.write)
 			c.setopt(c.CONNECTTIMEOUT, options.connectTimeout)
+			c.setopt(c.COOKIEJAR, COOKIE_FILE_NAME)
 			c.setopt(c.TIMEOUT, options.readTimeout)
 			# Validation should not be disabled except for debugging
 			#c.setopt(c.SSL_VERIFYPEER, 0)
