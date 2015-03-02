@@ -84,7 +84,7 @@ class UrlComparisonThread(threading.Thread):
 				self.processTask(self.taskQueue.get())
 				self.taskQueue.task_done()
 			except Exception, e:
-				logger.exception(e)
+				logging.exception(e)
 
 	def processTask(self, task):
 		problems = []
@@ -116,8 +116,9 @@ class UrlComparisonThread(threading.Thread):
 			#(note this is not symmetric, we don't care if orig page is broken).
 			#We don't handle 1xx codes for now.
 			if plainRcode//100 == 2 and transformedRcode//100 != 2:
-				message = "Non-2xx HTTP code: %s (%d) => %s (%d)" % (
-					plainUrl, plainRcode, transformedUrl, transformedRcode)
+				message = "Non-2xx HTTP code: %s (%d) => %s (%d) %s" % (
+					plainUrl, plainRcode, transformedUrl,
+					transformedRcode, task.ruleset.whatApplies(plainUrl))
 				logging.debug(message)
 				return message
 			
@@ -130,8 +131,8 @@ class UrlComparisonThread(threading.Thread):
 				logging.info("Big distance %0.4f: %s (%d) -> %s (%d). Rulefile: %s =====",
 					distance, plainUrl, len(plainPage), transformedUrl, len(transformedPage), ruleFname)
 		except Exception, e:
-			message = "Fetch error: %s => %s: %s" % (
-				plainUrl, transformedUrl, e)
+			message = "Fetch error: %s => %s %s: %s" % (
+				plainUrl, transformedUrl, task.ruleset.whatApplies(plainUrl), e)
 			logging.debug(message)
 			return message
 		finally:
@@ -259,8 +260,8 @@ def cli():
 
 		try:
 			ruleset = Ruleset(etree.parse(file(xmlFname)).getroot(), xmlFname)
-		except:
-			logger.error("Exception parsing %s: %s" % (xmlFname, e))
+		except Exception, e:
+			logging.error("Exception parsing %s: %s" % (xmlFname, e))
 		if ruleset.defaultOff and not includeDefaultOff:
 			logging.debug("Skipping rule '%s', reason: %s", ruleset.name, ruleset.defaultOff)
 			continue
@@ -329,7 +330,7 @@ def cli():
 					else:
 						# TODO: We should fetch the non-rewritten exclusion URLs to make
 						# sure they still exist.
-						logging.debug("Skipping excluded URL%s", test.url)
+						logging.debug("Skipping excluded URL %s", test.url)
 				task = ComparisonTask(testUrls, fetcherPlain, fetcher, ruleset)
 				taskQueue.put(task)
 		taskQueue.join()

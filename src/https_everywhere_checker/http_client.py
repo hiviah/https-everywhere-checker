@@ -331,7 +331,7 @@ class HTTPFetcher(object):
 			#shitty HTTP header parsing
 			if httpCode == 0:
 				raise HTTPFetcherError("Pycurl fetch failed for '%s'" % newUrl)
-			elif httpCode in (301, 302):
+			elif httpCode in (301, 302, 307):
 				#'Location' should be present only once, so the dict won't hurt
 				headers = dict(self._headerRe.findall(headerStr))
 				location = headers.get('Location')
@@ -360,9 +360,6 @@ class HTTPFetcher(object):
 				else:
 					newUrl = location
 			
-				if newUrl in seenUrls:
-					raise HTTPFetcherError("Cycle detected - URL already encountered: %s" % newUrl)
-				
 				continue #fetch redirected location
 				
 			return (httpCode, bufValue)

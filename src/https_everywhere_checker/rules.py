@@ -28,7 +28,7 @@ class Rule(object):
 		return self.fromRe.search(url) is not None
 	
 	def __repr__(self):
-		return "<Rule from '%s' to '%s'>" % (self.fromRe, self.toPattern)
+		return "<Rule from '%s' to '%s'>" % (self.fromRe.pattern, self.toPattern)
 	
 	def __str__(self):
 		return self.__repr__()
@@ -174,7 +174,7 @@ class Ruleset(object):
 		# them off that rule or exclusion.
 		problems = []
 		for test in self.tests:
-			applies = self._whatApplies(test.url)
+			applies = self.whatApplies(test.url)
 			if applies:
 				applies.tests.append(test)
 			else:
@@ -198,7 +198,7 @@ class Ruleset(object):
 					self.filename, actual_count, needed_count, exclusion))
 		return problems
 
-	def _whatApplies(self, url):
+	def whatApplies(self, url):
 		for exclusion in self.exclusions:
 			if exclusion.matches(url):
 				return exclusion
