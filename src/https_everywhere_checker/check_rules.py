@@ -116,9 +116,9 @@ class UrlComparisonThread(threading.Thread):
 			#(note this is not symmetric, we don't care if orig page is broken).
 			#We don't handle 1xx codes for now.
 			if plainRcode//100 == 2 and transformedRcode//100 != 2:
-				message = "Non-2xx HTTP code: %s (%d) => %s (%d) %s" % (
+				message = "Non-2xx HTTP code: %s (%d) => %s (%d)" % (
 					plainUrl, plainRcode, transformedUrl,
-					transformedRcode, task.ruleset.whatApplies(plainUrl))
+					transformedRcode)
 				logging.debug(message)
 				return message
 			
@@ -131,8 +131,8 @@ class UrlComparisonThread(threading.Thread):
 				logging.info("Big distance %0.4f: %s (%d) -> %s (%d). Rulefile: %s =====",
 					distance, plainUrl, len(plainPage), transformedUrl, len(transformedPage), ruleFname)
 		except Exception, e:
-			message = "Fetch error: %s => %s %s: %s" % (
-				plainUrl, transformedUrl, task.ruleset.whatApplies(plainUrl), e)
+			message = "Fetch error: %s => %s: %s" % (
+				plainUrl, transformedUrl, e)
 			logging.debug(message)
 			return message
 		finally:
