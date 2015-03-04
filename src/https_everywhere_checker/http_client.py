@@ -332,9 +332,12 @@ class HTTPFetcher(object):
 			if httpCode == 0:
 				raise HTTPFetcherError("Pycurl fetch failed for '%s'" % newUrl)
 			elif httpCode in (301, 302, 307):
-				#'Location' should be present only once, so the dict won't hurt
-				headers = dict(self._headerRe.findall(headerStr))
-				location = headers.get('Location')
+				# Parse out the headers and extract location, case-insensitively.
+				# If there are multiple location headers, pick the last one.
+				headers = dict()
+				for k, v in self._headerRe.findall(headerStr):
+					headers[k.lower()] = v
+				location = headers.get('location')
 				if not location:
 					raise HTTPFetcherError("Redirect for '%s' missing Location" % newUrl)
 				
