@@ -100,9 +100,17 @@ class MarkupMetric(Metric):
 		#same for our purpose.
 		if len(s1) == 0 and len(s2) == 0:
 			return 0
+		if s1 == s2:
+			return 0
 		
 		doc1 = etree.parse(StringIO(s1), etree.HTMLParser())
 		doc2 = etree.parse(StringIO(s2), etree.HTMLParser())
+
+		# If we failed to parse either document, return max Levenshtein distance.
+		# Note this will happen for non-HTML documents like favicons.
+		# Identical documents should hit the equality check before parsing.
+		if not doc1 or not doc2:
+			return 1
 		
 		mapped1, mapped2 = self.mappedTrees(doc1.getroot(), doc2.getroot())
 		
