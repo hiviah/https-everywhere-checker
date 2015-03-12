@@ -307,6 +307,7 @@ class HTTPFetcher(object):
 			c.setopt(c.HEADERFUNCTION, headerBuf.write)
 			c.setopt(c.CONNECTTIMEOUT, options.connectTimeout)
 			c.setopt(c.COOKIEJAR, COOKIE_FILE_NAME)
+			c.setopt(c.COOKIEFILE, COOKIE_FILE_NAME)
 			c.setopt(c.TIMEOUT, options.readTimeout)
 			# Validation should not be disabled except for debugging
 			#c.setopt(c.SSL_VERIFYPEER, 0)
