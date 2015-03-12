@@ -183,7 +183,12 @@ class Ruleset(object):
 		# Next, make sure each rule or exclusion has sufficient tests.
 		for rule in self.rules:
 			needed_count = 1 + len(regex.findall("[+*?|]", rule.fromPattern))
+			# Don't treat the question mark in non-capturing groups as increasing the
+			# number of required tests.
 			needed_count = needed_count - len(regex.findall("\(\?:", rule.fromPattern))
+			# Don't treat escaped questions marks as increasing the number of required
+			# tests.
+			needed_count = needed_count - len(regex.findall("\\?", rule.fromPattern))
 			actual_count = len(rule.tests)
 			if actual_count < needed_count:
 				problems.append("%s: Not enough tests (%d vs %s) for %s" % (
@@ -192,6 +197,7 @@ class Ruleset(object):
 		for exclusion in self.exclusions:
 			needed_count = 1 + len(regex.findall("[+*?|]", exclusion.exclusionPattern))
 			needed_count = needed_count - len(regex.findall("\(\?:", exclusion.exclusionPattern))
+			needed_count = needed_count - len(regex.findall("\\?", rule.fromPattern))
 			actual_count = len(exclusion.tests)
 			if actual_count < needed_count:
 				problems.append("%s: Not enough tests (%d vs %s) for %s" % (
