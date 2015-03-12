@@ -9,6 +9,7 @@ import cPickle
 import tempfile
 import traceback
 import subprocess
+import re
 
 # We need a cookie jar because some sites (e.g. forums.aws.amazon.com) go into a
 # redirect loop without it.
@@ -123,6 +124,45 @@ class FetcherOutArgs(object):
 	
 class HTTPFetcherError(RuntimeError):
 	pass
+
+class ErrorSanitizer():
+	""" Sanitize errors thrown by sub-tools and libraries
+	"""
+
+	def __init__(self):
+		self.fetch_pattern = [("Could not resolve host","Could not resolve host"),
+					("Resolving timed out after", "Resolving timeout"),
+					("Operation timed out after","Operation timeout"),
+					("Connection timed out after","Connection timeout"),
+					("Error in protocol version","gnutls: protocol version error"),
+					("server certificate verification failed","gnutls: certificate verification failed"),
+					("The server name sent was not recognized","gnutls: server name not recognized"),
+					("The TLS connection was non-properly terminated","gnutls: termination error"),
+					("gnutls_handshake\\(\\) failed: Handshake failed","gnutls: handshake failed"),
+					("gnutls_handshake\\(\\) failed: A record packet with illegal version was received", "gnutls: handshake fail, illegal version"),
+					("does not match target host name.*SSL: certificate subject name","ssl: certificate subject mismatch"),
+					("Failed to connect to .*No route to host", "no route to host"),
+					("Failed to connect to .*Connection refused", "connection refused"),
+					("gnutls_handshake\\(\\) failed: Error in the pull function\\.", "gnutls: handshake fail in pull"),
+					("gnutls_handshake\\(\\) failed: Internal error", "gnutls: handshake fail internal error"),
+					("Empty reply from server", "empty reply")
+					]
+		pass
+
+	def fetcher(self, shortError, errorStr):
+		""" Sanitize fetcher errors
+		qparam shortError:
+		qparam errorStr:
+		qreturn: The new error string
+		"""
+
+		for pattern, replacement in self.fetch_pattern:
+			p = re.compile(pattern)
+			m = p.search(errorStr)
+			if m:
+				return replacement
+
+		return "Fetcher subprocess error: %s\n%s" % (shortError, errorStr)
 
 class HTTPFetcher(object):
 	"""Fetches HTTP(S) pages via PyCURL. CA certificates can be configured.
@@ -242,8 +282,7 @@ class HTTPFetcher(object):
 				type(unpickled))
 		if unpickled.errorStr: #chained exception tracebacks are bit ugly/long
 			assert unpickled.shortError is not None
-			raise HTTPFetcherError("Fetcher subprocess error: %s\n%s" % \
-				(unpickled.shortError, unpickled.errorStr))
+			raise HTTPFetcherError(ErrorSanitizer().fetcher(unpickled.shortError, unpickled.errorStr))
 			
 		return unpickled
 		
