@@ -6,9 +6,14 @@ import urlparse
 import cStringIO
 import regex
 import cPickle
+import tempfile
 import traceback
 import subprocess
 import re
+
+# We need a cookie jar because some sites (e.g. forums.aws.amazon.com) go into a
+# redirect loop without it.
+COOKIE_FILE_NAME = tempfile.mkstemp()[1]
 
 class CertificatePlatforms(object):
 	"""Maps platform names from rulesets to CA certificate sets"""
@@ -301,6 +306,8 @@ class HTTPFetcher(object):
 			c.setopt(c.WRITEFUNCTION, buf.write)
 			c.setopt(c.HEADERFUNCTION, headerBuf.write)
 			c.setopt(c.CONNECTTIMEOUT, options.connectTimeout)
+			c.setopt(c.COOKIEJAR, COOKIE_FILE_NAME)
+			c.setopt(c.COOKIEFILE, COOKIE_FILE_NAME)
 			c.setopt(c.TIMEOUT, options.readTimeout)
 			# Validation should not be disabled except for debugging
 			#c.setopt(c.SSL_VERIFYPEER, 0)
@@ -364,10 +371,13 @@ class HTTPFetcher(object):
 			#shitty HTTP header parsing
 			if httpCode == 0:
 				raise HTTPFetcherError("Pycurl fetch failed for '%s'" % newUrl)
-			elif httpCode in (301, 302):
-				#'Location' should be present only once, so the dict won't hurt
-				headers = dict(self._headerRe.findall(headerStr))
-				location = headers.get('Location')
+			elif httpCode in (301, 302, 307):
+				# Parse out the headers and extract location, case-insensitively.
+				# If there are multiple location headers, pick the last one.
+				headers = dict()
+				for k, v in self._headerRe.findall(headerStr):
+					headers[k.lower()] = v
+				location = headers.get('location')
 				if not location:
 					raise HTTPFetcherError("Redirect for '%s' missing Location" % newUrl)
 				
@@ -393,9 +403,6 @@ class HTTPFetcher(object):
 				else:
 					newUrl = location
 			
-				if newUrl in seenUrls:
-					raise HTTPFetcherError("Cycle detected - URL already encountered: %s" % newUrl)
-				
 				continue #fetch redirected location
 				
 			return (httpCode, bufValue)
