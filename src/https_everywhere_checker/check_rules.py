@@ -163,6 +163,7 @@ class UrlComparisonThread(threading.Thread):
 		except Exception, e:
 			message = "Fetch error: %s => %s: %s" % (
 				plainUrl, transformedUrl, e)
+			logging.exception(e)
 			self.queue_result("error", "fetch-error %s"% e, task.ruleFname, plainUrl, https_url=transformedUrl)
 			logging.debug(message)
 			return message
@@ -327,10 +328,7 @@ def cli():
 			problems = ruleset.getCoverageProblems()
 			for problem in problems:
 				coverageProblemsExist = True
-				if "exclusion" in problem:
-					logging.error("%(filename)s: Not enough tests (%(actual_count)d vs %(needed_count)d) for %(exclusion)s".format(problem))
-				elif "rule" in problem:
-					logging.error("%(filename)s: Not enough tests (%(actual_count)d vs %(needed_count)d) for %(rule)s" .format(problem))
+				logging.error(problem)
 		trie.addRuleset(ruleset)
 		rulesets.append(ruleset)
 	
