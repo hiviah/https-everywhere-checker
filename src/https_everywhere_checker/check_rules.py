@@ -163,7 +163,6 @@ class UrlComparisonThread(threading.Thread):
 		except Exception, e:
 			message = "Fetch error: %s => %s: %s" % (
 				plainUrl, transformedUrl, e)
-			logging.exception(e)
 			self.queue_result("error", "fetch-error %s"% e, task.ruleFname, plainUrl, https_url=transformedUrl)
 			logging.debug(message)
 			return message
