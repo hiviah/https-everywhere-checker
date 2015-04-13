@@ -328,9 +328,9 @@ def cli():
 			for problem in problems:
 				coverageProblemsExist = True
 				if "exclusion" in problem:
-					logging.error("%(filename)s: Not enough tests (%(actual_count)d vs %(needed_count)d) for %(exclusion)s".format(problem))
+					logging.error("%(filename)s: Not enough tests (%(actual_count)d vs %(needed_count)d) for %(exclusion)s" % problem)
 				elif "rule" in problem:
-					logging.error("%(filename)s: Not enough tests (%(actual_count)d vs %(needed_count)d) for %(rule)s" .format(problem))
+					logging.error("%(filename)s: Not enough tests (%(actual_count)d vs %(needed_count)d) for %(rule)s" % problem)
 		trie.addRuleset(ruleset)
 		rulesets.append(ruleset)
 	
