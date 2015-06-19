@@ -183,18 +183,18 @@ class Ruleset(object):
 		# Next, make sure each rule or exclusion has sufficient tests.
 		for rule in self.rules:
 			needed_count = 1 + len(regex.findall("[+*?|]", rule.fromPattern))
-			# Don't treat the question mark in non-capturing groups as increasing the
+			# Don't treat the question mark in non-capturing and lookahead groups as increasing the
 			# number of required tests.
 			needed_count = needed_count - len(regex.findall("\(\?:", rule.fromPattern))
+			needed_count = needed_count - len(regex.findall("\(\?!", rule.fromPattern))
+			needed_count = needed_count - len(regex.findall("\(\?=", rule.fromPattern))
 			# Don't treat escaped questions marks as increasing the number of required
 			# tests.
 			needed_count = needed_count - len(regex.findall("\\?", rule.fromPattern))
 			actual_count = len(rule.tests)
 			if actual_count < needed_count:
-				problems.append({"filename": self.filename,
-								 "actual_count": actual_count,
-								 "needed_count": needed_count,
-								 "rule": str(rule)})
+				problems.append("%s: Not enough tests (%d vs %s) for %s" % (
+								self.filename, actual_count, needed_count, rule))
 				pass
 		for exclusion in self.exclusions:
 			needed_count = 1 + len(regex.findall("[+*?|]", exclusion.exclusionPattern))
@@ -202,10 +202,8 @@ class Ruleset(object):
 			needed_count = needed_count - len(regex.findall("\\?", rule.fromPattern))
 			actual_count = len(exclusion.tests)
 			if actual_count < needed_count:
-				problems.append({"filename": self.filename,
-								 "actual_count": actual_count,
-								 "needed_count": needed_count,
-								 "exclusion": str(exclusion)})
+				problems.append("%s: Not enough tests (%d vs %s) for %s" % (
+								self.filename, actual_count, needed_count, exclusion))
 		return problems
 
 	def whatApplies(self, url):

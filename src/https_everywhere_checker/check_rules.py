@@ -135,31 +135,45 @@ class UrlComparisonThread(threading.Thread):
 		
 		try:
 			logging.debug("=**= Start %s => %s ****", plainUrl, transformedUrl)
-			logging.debug("Fetching plain page %s", plainUrl)
-			plainRcode, plainPage = fetcherPlain.fetchHtml(plainUrl)
 			logging.debug("Fetching transformed page %s", transformedUrl)
 			transformedRcode, transformedPage = fetcherRewriting.fetchHtml(transformedUrl)
-			
-			#Compare HTTP return codes - if original page returned 2xx,
-			#but the transformed didn't, consider it an error in ruleset
-			#(note this is not symmetric, we don't care if orig page is broken).
-			#We don't handle 1xx codes for now.
-			if plainRcode//100 == 2 and transformedRcode//100 != 2:
+			logging.debug("Fetching plain page %s", plainUrl)
+			# If we get an exception (e.g. connection refused,
+			# connection timeout) on the plain page, don't treat
+			# that as a failure.
+			plainRcode, plainPage = None, None
+			try:
+				plainRcode, plainPage = fetcherPlain.fetchHtml(plainUrl)
+			except Exception, e:
+				logging.debug("Non-fatal fetch error for plain page %s: %s" % (plainUrl, e))
+
+			# Compare HTTP return codes - if original page returned 2xx,
+			# but the transformed didn't, consider it an error in ruleset
+			# (note this is not symmetric, we don't care if orig page is broken).
+			# We don't handle 1xx codes for now.
+			if plainRcode and plainRcode//100 == 2 and transformedRcode//100 != 2:
 				message = "Non-2xx HTTP code: %s (%d) => %s (%d)" % (
 					plainUrl, plainRcode, transformedUrl, transformedRcode)
 				self.queue_result("error", "non-2xx http code", task.ruleFname, plainUrl, https_url=transformedUrl)
 				logging.debug(message)
 				return message
 			
-			distance = self.metric.distanceNormed(plainPage, transformedPage)
+			# If the plain page fetch got an exception, we don't
+			# need to do the distance comparison. Intuitively, if a
+			# plain page is fetchable people expect it to have the
+			# same content as the HTTPS page. But if the plain page
+			# is unreachable, there's nothing to compare to.
+			if plainPage:
+				distance = self.metric.distanceNormed(plainPage, transformedPage)
 			
-			logging.debug("==== D: %0.4f; %s (%d) -> %s (%d) =====",
-				distance,plainUrl, len(plainPage), transformedUrl, len(transformedPage))
+				logging.debug("==== D: %0.4f; %s (%d) -> %s (%d) =====",
+					distance, plainUrl, len(plainPage), transformedUrl, len(transformedPage))
+				if distance >= self.thresholdDistance:
+					logging.info("Big distance %0.4f: %s (%d) -> %s (%d). Rulefile: %s =====",
+						distance, plainUrl, len(plainPage), transformedUrl, len(transformedPage), ruleFname)
 
 			self.queue_result("success", "", task.ruleFname, plainUrl)
-			if distance >= self.thresholdDistance:
-				logging.info("Big distance %0.4f: %s (%d) -> %s (%d). Rulefile: %s =====",
-					distance, plainUrl, len(plainPage), transformedUrl, len(transformedPage), ruleFname)
+
 		except Exception, e:
 			message = "Fetch error: %s => %s: %s" % (
 				plainUrl, transformedUrl, e)
@@ -327,10 +341,7 @@ def cli():
 			problems = ruleset.getCoverageProblems()
 			for problem in problems:
 				coverageProblemsExist = True
-				if "exclusion" in problem:
-					logging.error("%(filename)s: Not enough tests (%(actual_count)d vs %(needed_count)d) for %(exclusion)s" % problem)
-				elif "rule" in problem:
-					logging.error("%(filename)s: Not enough tests (%(actual_count)d vs %(needed_count)d) for %(rule)s" % problem)
+				logging.error(problem)
 		trie.addRuleset(ruleset)
 		rulesets.append(ruleset)
 	
